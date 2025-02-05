@@ -13,7 +13,7 @@ from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch import seed_everything
 from pathlib import Path
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, ParameterGrid
 
 from models.set_transformers_graph_unet import NBGSTUnet
 from models.gtunet import GTUNet
@@ -44,16 +44,16 @@ def main():
 
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
-    parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=10, help='Number of folds for cross-validation')
 
-    parser.add_argument('--dim_hidden', type=int, default=128, help='Hidden dimension')
-    parser.add_argument('--out_channels', type=int, default=64, help='Output channels') # For GTUNet
+    parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
+    parser.add_argument('--out_channels', type=int, default=128, help='Output channels') # For GTUNet
     parser.add_argument('--output_intermediate_dim', type=int, default=64, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
-    parser.add_argument('--dropout_ratio', type=float, default=0.3, help='Dropout ratio')
-    parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')
-    parser.add_argument('--num_seeds', type=int, default=8, help='Number of seeds')
+    parser.add_argument('--dropout_ratio', type=float, default=0.5, help='Dropout ratio')
+    parser.add_argument('--num_heads', type=int, default=8, help='Number of heads')
+    parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
     parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.7, help='TopK pooling ratio')
@@ -83,74 +83,90 @@ def main():
     print(f'\nRandom sample: {random_sample}')
     print(dataset[random_sample])
 
-    # K-FOLD CROSS-VALIDATION #
-    skf = StratifiedKFold(n_splits=args.kfolds, shuffle=True, random_state=seed_value)
-    fold_results = []
+    # HYPERPARAMETERS GRID
+    param_grid = {
+        'batch_size': [32, 64],
+        'num_heads': [4, 8, 16],
+        'dim_hidden': [64, 128, 256],
+        'seeds': [8, 16, 32], 
+        'pooling_ratio': [0.7, 0.9]
+    }
 
-    for fold, (train_idx, test_idx) in enumerate(skf.split(dataset, dataset.y)):
-        print(f'\n=== Fold {fold + 1}/{args.kfolds} ===')
+    for params in ParameterGrid(param_grid):
+        print(f'Tuning with params: {params}')
 
-        train_set = dataset[train_idx]
-        test_set = dataset[test_idx]
+        val_scores = []
+        best_params = None
+        best_val_score = float('-inf')
 
-        print(f'Train set: {len(train_set)} subjects')
-        print(f'Test set: {len(test_set)} subjects')
+        # K-FOLD CROSS-VALIDATION #
+        skf = StratifiedKFold(n_splits=args.kfolds, shuffle=True, random_state=seed_value)
+        fold_results = []
 
-        train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
-        val_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+        for fold, (train_idx, test_idx) in enumerate(skf.split(dataset, dataset.y)):
+            print(f'\n=== Fold {fold + 1}/{args.kfolds} ===')
 
-        n_features = dataset.num_node_features
+            train_set = dataset[train_idx]
+            test_set = dataset[test_idx]
 
-        # MODEL # 
-        if args.model_type == 'NBGSTUnet':
-            model = NBGSTUnet(
-                dim_input=n_features,
-                dim_hidden=args.dim_hidden,
-                output_intermediate_dim=args.output_intermediate_dim,
-                dim_output=args.dim_output,
-                dropout_ratio=args.dropout_ratio,
-                num_heads=args.num_heads,
-                num_seeds=args.num_seeds,
-                ln=args.ln,
-                depth=args.depth,
-                pooling_ratio=args.pooling_ratio,
-                sum_res=args.sum_res,
-                lr=args.lr
-            ).to(device)
-        elif args.model_type == 'GTUNet':
-            model = GTUNet(
-                in_channels=n_features,
-                hidden_channels=args.dim_hidden,
-                out_channels=args.out_channels,
-                output_intermediate_dim=args.output_intermediate_dim,
-                dim_output=args.dim_output,
-                num_heads=args.num_heads,
-                depth=args.depth,
-                pool_ratios=args.pooling_ratio,
-                dropout=args.dropout_ratio,
-                sum_res=args.sum_res
-            ).to(device)
+            print(f'Train set: {len(train_set)} subjects')
+            print(f'Test set: {len(test_set)} subjects')
 
-        # TRAINING #
-        monitor = 'val_loss'
-        early_stopping = EarlyStopping(monitor=monitor, patience=30, mode='min')
-        lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        callbacks = [early_stopping, lr_monitor]
+            train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+            val_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
 
-        tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'{args.model_type}_fold_{fold}')
+            n_features = dataset.num_node_features
 
-        trainer = L.Trainer(
-            max_epochs=args.epochs,
-            callbacks=callbacks,
-            accelerator=device,
-            logger=tensorboardlogger,
-            enable_progress_bar=True
-        )
+            # MODEL # 
+            if args.model_type == 'NBGSTUnet':
+                model = NBGSTUnet(
+                    dim_input=n_features,
+                    dim_hidden=args.dim_hidden,
+                    output_intermediate_dim=args.output_intermediate_dim,
+                    dim_output=args.dim_output,
+                    dropout_ratio=args.dropout_ratio,
+                    num_heads=args.num_heads,
+                    num_seeds=args.num_seeds,
+                    ln=args.ln,
+                    depth=args.depth,
+                    pooling_ratio=args.pooling_ratio,
+                    sum_res=args.sum_res,
+                    lr=args.lr
+                ).to(device)
+            elif args.model_type == 'GTUNet':
+                model = GTUNet(
+                    in_channels=n_features,
+                    hidden_channels=args.dim_hidden,
+                    out_channels=args.out_channels,
+                    output_intermediate_dim=args.output_intermediate_dim,
+                    dim_output=args.dim_output,
+                    num_heads=args.num_heads,
+                    depth=args.depth,
+                    pool_ratios=args.pooling_ratio,
+                    dropout=args.dropout_ratio,
+                    sum_res=args.sum_res
+                ).to(device)
 
-        print(f'Training on Fold {fold + 1}...')
-        trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+            # TRAINING #
+            monitor = 'val_loss'
+            early_stopping = EarlyStopping(monitor=monitor, patience=30, mode='min')
+            lr_monitor = LearningRateMonitor(logging_interval='epoch')
+            callbacks = [early_stopping, lr_monitor]
 
-        fold_results.append(model.validation_metrics_per_epoch)
+            tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'{args.model_type}_fold_{fold}')
+
+            trainer = L.Trainer(
+                max_epochs=args.epochs,
+                callbacks=callbacks,
+                accelerator=device,
+                logger=tensorboardlogger,
+                enable_progress_bar=True
+            )
+
+            print(f'Training on Fold {fold + 1}...')
+            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+            fold_results.append(model.validation_metrics_per_epoch)
 
     # AVERAGE METRICS #
     accs = []
