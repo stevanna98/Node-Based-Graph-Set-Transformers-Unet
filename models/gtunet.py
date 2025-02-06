@@ -6,7 +6,7 @@ import sys
 
 from typing import Callable, List, Union
 from torch import Tensor
-from torch_geometric.nn import TopKPooling, TransformerConv
+from torch_geometric.nn import TopKPooling, TransformerConv, GATv2Conv
 from torch_geometric.nn.resolver import activation_resolver
 from torch_geometric.typing import OptTensor
 from torch_geometric.utils.repeat import repeat
@@ -48,14 +48,18 @@ class GTUNet(pl.LightningModule):
         self.act = activation_resolver(act)
         self.sum_res = sum_res
 
-        self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
-        self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        # self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=2, beta=True)
+        # self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=2, beta=True)
+        self.down_in_hid_conv = GATv2Conv(in_channels, hidden_channels, heads=1, edge_dim=edge_dim)
+        self.down_hid_conv = GATv2Conv(hidden_channels, hidden_channels, heads=1, edge_dim=edge_dim)
 
         channels = hidden_channels
         in_channels = channels if sum_res else 2 * channels
 
-        self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
-        self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=1, beta=True)
+        # self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=2, beta=True)
+        # self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=2, beta=True)
+        self.up_in_hid_conv = GATv2Conv(in_channels, hidden_channels, heads=1, edge_dim=edge_dim)
+        self.up_in_out_conv = GATv2Conv(in_channels, out_channels, heads=1, edge_dim=edge_dim)
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
