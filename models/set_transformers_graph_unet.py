@@ -62,7 +62,7 @@ class NBGSTUnet(pl.LightningModule):
         self.depth = depth  
         self.pooling_ratio = repeat(pooling_ratio, depth)
         self.sum_res = sum_res
-
+        self.attention_gate = attention_gate
         self.lr = lr
 
         # ENCODER #
@@ -91,7 +91,7 @@ class NBGSTUnet(pl.LightningModule):
         # ATTENTION #
         self.attns = torch.nn.ModuleList()
         for i in range(depth):
-            self.attns.append(AttentionGate(dim_in=dim_hidden))
+            self.attns.append(AttentionGate(K=dim_hidden))
     
         # POOLING BY MULTIHEAD ATTENTION #
         self.pma = PMA(dim_hidden, num_heads, num_seeds, ln, dropout_ratio)
@@ -161,18 +161,26 @@ class NBGSTUnet(pl.LightningModule):
             up = torch.zeros_like(res)
             up[perm] = x
 
-            batch_size = b_map.max().item() + 1
-            matrix_dim = up.shape[0] // batch_size
-            res = res.view(batch_size, matrix_dim, -1)
-            up = up.view(batch_size, matrix_dim, -1)
+            if self.attention_gate:
+                batch_size = b_map.max().item() + 1
+                matrix_dim = up.shape[0] // batch_size
+                res = res.view(batch_size, matrix_dim, -1)
+                up = up.view(batch_size, matrix_dim, -1)
 
-            # Attention gate mechanism
-            res_, attn_weight = self.attns[j](res, up)
-            concatenation = torch.concat([res_, up], dim=-1)
-            concatenation = concatenation.view(-1, concatenation.size(-1))
+                # Attention gate mechanism
+                res_, attn_weight = self.attns[j](res, up)
+                concatenation = torch.concat([res_, up], dim=-1)
+                concatenation = concatenation.view(-1, concatenation.size(-1))
 
-            mask_dim = concatenation.shape[0] // batch_size
-            X, M = self.masking(concatenation, edge_index, mask_dim, b_map, batch_size)
+                mask_dim = concatenation.shape[0] // batch_size
+                X, M = self.masking(concatenation, edge_index, mask_dim, b_map, batch_size)
+            else:
+                x = res + up if self.sum_res else torch.cat((res, up), dim=-1)
+
+                batch_size = b_map.max().item() + 1
+                mask_dim = x.shape[0] // batch_size
+                X, M = self.masking(x, edge_index, mask_dim, b_map, batch_size)
+
             x = self.up_nets[i](X, M)
             x = x.view(-1, x.size(-1))
 

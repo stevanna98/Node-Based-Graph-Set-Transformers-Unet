@@ -58,6 +58,7 @@ def main():
     parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.7, help='TopK pooling ratio')
     parser.add_argument('--sum_res', default=False, help='Sum residual')
+    parser.add_argument('--attention_gate', default=False, help='Attention gate')
 
     args = parser.parse_args()
 
@@ -115,7 +116,8 @@ def main():
                 depth=args.depth,
                 pooling_ratio=args.pooling_ratio,
                 sum_res=args.sum_res,
-                lr=args.lr
+                lr=args.lr,
+                attention_gate=args.attention_gate
             ).to(device)
         elif args.model_type == 'GTUNet':
             model = GTUNet(
@@ -143,7 +145,8 @@ def main():
                 depth=args.depth,
                 pooling_ratio=args.pooling_ratio,
                 sum_res=args.sum_res,
-                lr=args.lr
+                lr=args.lr,
+                attention_gate=args.attention_gate
             ).to(device)
 
 
