@@ -15,23 +15,53 @@ from src.mask_modules import *
 from src.utils import *
 from src.masking import *
 
+# class AttentionGate(pl.LightningModule):
+#     def __init__(self, dim_in: int):
+#         super(AttentionGate, self).__init__()   
+#         self.W_res = nn.Sequential(
+#             nn.Linear(dim_in, dim_in),
+#             nn.LayerNorm(dim_in)
+#         )
+#         self.W_up = nn.Sequential(
+#             nn.Linear(dim_in, dim_in),
+#             nn.LayerNorm(dim_in)
+#         )
+#         self.psi = nn.Sequential(
+#             nn.Linear(dim_in, 1),
+#             nn.LayerNorm(1)
+#         )
+
+#     def forward(self, res, up):
+#         res_proj = self.W_res(res)
+#         up_proj = self.W_up(up)     
+
+#         attn_map = F.leaky_relu(res_proj + up_proj)
+#         # attn_map = torch.sigmoid(self.psi(attn_map))
+#         attn_map = torch.softmax(self.psi(attn_map), dim=1)
+
+#         res_weighted = attn_map * res  
+#         return res_weighted, attn_map
+
 class AttentionGate(pl.LightningModule):
-    def __init__(self, dim_in: int):
+    def __init__(self, K):
         super(AttentionGate, self).__init__()   
         self.W_res = nn.Sequential(
-            nn.Linear(dim_in, dim_in),
-            nn.LayerNorm(dim_in)
+            nn.Conv2d(K, K, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(K)
         )
         self.W_up = nn.Sequential(
-            nn.Linear(dim_in, dim_in),
-            nn.LayerNorm(dim_in)
+            nn.Conv2d(K, K, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(K)
         )
         self.psi = nn.Sequential(
-            nn.Linear(dim_in, 1),
-            nn.LayerNorm(1)
+            nn.Conv2d(K, 1, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(1)
         )
 
     def forward(self, res, up):
+        res = res.permute(0, 2, 1).unsqueeze(-1)  
+        up = up.permute(0, 2, 1).unsqueeze(-1)    
+
         res_proj = self.W_res(res)
         up_proj = self.W_up(up)     
 
@@ -40,7 +70,8 @@ class AttentionGate(pl.LightningModule):
         attn_map = torch.softmax(self.psi(attn_map), dim=1)
 
         res_weighted = attn_map * res  
-        return res_weighted, attn_map
+        res_weighted = res_weighted.squeeze(-1).permute(0, 2, 1)
+        return res_weighted, attn_map.squeeze(-1)  
 
 class NodeBasedGraphSetTransformers(pl.LightningModule):
     def __init__(self,
@@ -116,7 +147,7 @@ class NBGSTUnet(pl.LightningModule):
         # ATTENTION #
         self.attns = torch.nn.ModuleList()
         for i in range(depth):
-            self.attns.append(AttentionGate(dim_in=dim_hidden))
+            self.attns.append(AttentionGate(K=dim_hidden))
     
         # POOLING BY MULTIHEAD ATTENTION #
         self.pma = PMA(dim_hidden, num_heads, num_seeds, ln, dropout_ratio)
@@ -312,7 +343,8 @@ class NBGSTUnet(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-3)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=20, gamma=0.5)
 
         return {
             "optimizer": optimizer,

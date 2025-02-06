@@ -90,8 +90,8 @@ def main():
     for fold, (train_idx, test_idx) in enumerate(skf.split(dataset, dataset.y)):
         print(f'\n=== Fold {fold + 1}/{args.kfolds} ===')
 
-        train_set = dataset[train_idx]
-        test_set = dataset[test_idx]
+        train_set = dataset[train_idx.tolist()]
+        test_set = dataset[test_idx.tolist()]
 
         print(f'Train set: {len(train_set)} subjects')
         print(f'Test set: {len(test_set)} subjects')
@@ -149,7 +149,7 @@ def main():
 
         # TRAINING #
         monitor = 'val_loss'
-        early_stopping = EarlyStopping(monitor=monitor, patience=30, mode='min')
+        early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
         callbacks = [early_stopping, lr_monitor]
 
