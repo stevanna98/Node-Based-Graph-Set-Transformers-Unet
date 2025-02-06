@@ -44,19 +44,14 @@ def main():
 
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
-    parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=10, help='Number of folds for cross-validation')
 
-    parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--out_channels', type=int, default=128, help='Output channels') # For GTUNet
     parser.add_argument('--output_intermediate_dim', type=int, default=64, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
     parser.add_argument('--dropout_ratio', type=float, default=0.5, help='Dropout ratio')
-    parser.add_argument('--num_heads', type=int, default=8, help='Number of heads')
-    parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
     parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
-    parser.add_argument('--pooling_ratio', type=float, default=0.7, help='TopK pooling ratio')
     parser.add_argument('--sum_res', default=False, help='Sum residual')
 
     args = parser.parse_args()
@@ -84,19 +79,27 @@ def main():
     print(dataset[random_sample])
 
     # HYPERPARAMETERS GRID
-    param_grid = {
+    # NBGSTUnet
+    param_grid_1 = {
         'batch_size': [32, 64],
         'num_heads': [4, 8, 16],
         'dim_hidden': [64, 128, 256],
         'seeds': [8, 16, 32], 
         'pooling_ratio': [0.7, 0.9]
     }
+    # GTUNet
+    param_grid_2 = {
+        'batch_size': [32, 64],
+        'dim_hidden': [64, 128, 256],
+        'pooling_ratio': [0.7, 0.9],
+        'seeds': [8, 16, 32]
+    }
 
     best_params = None
     best_val_scores = float('inf')
     best_results = []
 
-    for params in ParameterGrid(param_grid):
+    for params in ParameterGrid(param_grid_1):
         print(f'Tuning with params: {params}')
 
         # K-FOLD CROSS-VALIDATION #
@@ -121,29 +124,31 @@ def main():
             if args.model_type == 'NBGSTUnet':
                 model = NBGSTUnet(
                     dim_input=n_features,
-                    dim_hidden=args.dim_hidden,
+                    dim_hidden=params['dim_hidden'],
                     output_intermediate_dim=args.output_intermediate_dim,
                     dim_output=args.dim_output,
                     dropout_ratio=args.dropout_ratio,
-                    num_heads=args.num_heads,
-                    num_seeds=args.num_seeds,
+                    num_heads=params['num_heads'],
+                    num_seeds=params['seeds'],
                     ln=args.ln,
                     depth=args.depth,
-                    pooling_ratio=args.pooling_ratio,
+                    pooling_ratio=params['pooling_ratio'],
                     sum_res=args.sum_res,
                     lr=args.lr
                 ).to(device)
             elif args.model_type == 'GTUNet':
                 model = GTUNet(
                     in_channels=n_features,
-                    hidden_channels=args.dim_hidden,
+                    hidden_channels=params['dim_hidden'],
                     out_channels=args.out_channels,
                     output_intermediate_dim=args.output_intermediate_dim,
                     dim_output=args.dim_output,
                     num_heads=args.num_heads,
+                    num_seeds=params['seeds'],
                     depth=args.depth,
                     lr=args.lr,
-                    pool_ratios=args.pooling_ratio,
+                    ln=args.ln,
+                    pool_ratios=params['pooling_ratio'],
                     dropout=args.dropout_ratio,
                     sum_res=args.sum_res
                 ).to(device)

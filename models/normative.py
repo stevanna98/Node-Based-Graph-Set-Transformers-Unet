@@ -41,7 +41,7 @@ class AttentionGate(pl.LightningModule):
 
         res_weighted = attn_map * res  
         return res_weighted, attn_map
-
+    
 class NodeBasedGraphSetTransformers(pl.LightningModule):
     def __init__(self,
                  dim_in: int,
@@ -59,35 +59,28 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
         enc2 = self.enc_msab2(enc1, M) + enc1
         enc3 = self.enc_sab1(enc2) + enc2
         return enc3
-
-class NBGSTUnet(pl.LightningModule):
+    
+class NormativeGUNet(pl.LightningModule):
     def __init__(self,
                  dim_input: int,
                  dim_hidden: int,
-                 output_intermediate_dim: int,
-                 dim_output: int,
                  dropout_ratio: float,
                  num_heads: int,
-                 num_seeds: int,
                  ln: bool,
                  depth: int,
                  pooling_ratio: float,
                  sum_res: bool,
-                 lr: float,):
-        super(NBGSTUnet, self).__init__()
+                 lr: float):
+        super(NormativeGUNet, self).__init__()
         self.save_hyperparameters()
         self.dim_input = dim_input
         self.dim_hidden = dim_hidden
-        self.output_intermediate_dim = output_intermediate_dim
-        self.dim_output = dim_output
         self.dropout_ratio = dropout_ratio
         self.num_heads = num_heads
-        self.num_seeds = num_seeds
         self.ln = ln
-        self.depth = depth  
+        self.depth = depth
         self.pooling_ratio = repeat(pooling_ratio, depth)
         self.sum_res = sum_res
-
         self.lr = lr
 
         # ENCODER #
@@ -99,7 +92,7 @@ class NBGSTUnet(pl.LightningModule):
 
         # DECODER #
         self.up_in_hid_net = NodeBasedGraphSetTransformers(dim_in=in_channels, dim_out=dim_hidden, num_heads=num_heads, ln=ln, dropout=dropout_ratio)
-        self.up_in_out_net = NodeBasedGraphSetTransformers(dim_in=in_channels, dim_out=dim_hidden, num_heads=num_heads, ln=ln, dropout=dropout_ratio)
+        self.up_in_out_net = NodeBasedGraphSetTransformers(dim_in=in_channels, dim_out=dim_input, num_heads=1, ln=ln, dropout=dropout_ratio)
 
         self.down_nets = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
@@ -117,19 +110,6 @@ class NBGSTUnet(pl.LightningModule):
         self.attns = torch.nn.ModuleList()
         for i in range(depth):
             self.attns.append(AttentionGate(dim_in=dim_hidden))
-    
-        # POOLING BY MULTIHEAD ATTENTION #
-        self.pma = PMA(dim_hidden, num_heads, num_seeds, ln, dropout_ratio)
-        if self.num_seeds > 1:
-            self.dec_sab = SAB(dim_hidden, dim_hidden, num_heads, ln, dropout_ratio)
-
-        # OUTPUT CLASSIFIER #
-        self.output_mlp = nn.Sequential(
-            nn.Linear(dim_hidden, output_intermediate_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),
-            nn.Linear(output_intermediate_dim, dim_output)
-        )
 
         # Storage
         self.train_outputs = defaultdict(list)
@@ -203,112 +183,93 @@ class NBGSTUnet(pl.LightningModule):
 
         x = F.dropout(x, p=self.dropout_ratio)
         x = x.view(batch_size, mask_dim, x.size(-1))
-        encoded = self.pma(x)
-        if self.num_seeds > 1:
-            dec = self.dec_sab(encoded)
-            readout = torch.mean(dec, dim=1, keepdim=True)
-            out = self.output_mlp(readout)
-        else:
-            out = self.output_mlp(encoded)
-        return out
+        return x
     
-    def task_loss(self, y_pred, y_true):
-        y_true = y_true.view(y_pred.shape)
-        loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
-
-        l1_lambda = 1e-4
-        l2_lambda = 1e-4
-        l1_norm = sum(p.abs().sum() for p in self.parameters())
-        l2_norm = sum(p.pow(2.0).sum() for p in self.parameters())
-        loss += l1_lambda * l1_norm + l2_lambda * l2_norm
-
-        return loss
+    def task_loss(self, true_x, recon_x):
+        recon_loss = F.mse_loss(recon_x, true_x, reduction='mean')
+        return recon_loss
     
     def _step(self, batch, batch_idx):
-        y = batch.y
-        out = self.forward(batch)
-        loss = self.task_loss(out, y)
-        return loss, out, y
-    
+        recon_x = self.forward(batch)
+
+        x = batch.x
+        batch_size = batch.batch.max().item() + 1
+        matrix_dim = batch[0].num_nodes
+        n_features = x.size(-1)
+        true_x = x.view(batch_size, matrix_dim, n_features)
+
+        loss = self.task_loss(true_x, recon_x)
+        return loss
+
     def training_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss = self._step(batch, batch_idx)
+        
+        self.train_outputs[self.current_epoch].append({
+            'loss': loss
+        })
+
         self.log('train_loss', loss)
-        self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss = self._step(batch, batch_idx)
+        
+        self.validation_outputs[self.current_epoch].append({
+            'loss': loss
+        })
+
         self.log('val_loss', loss)
-        self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def test_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss = self._step(batch, batch_idx)
+        
+        self.test_outputs[self.current_epoch].append({
+            'loss': loss
+        })
+
         self.log('test_loss', loss)
-        self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
-    def _get_metrics_epoch_end(self, all_y_true, all_y_pred):
-        all_y_pred = torch.sigmoid(all_y_pred.float())
-        all_y_pred = torch.where(all_y_pred > 0.5, 1.0, 0.0).long()
-        return get_classification_metrics(y_true=all_y_true.long().detach().cpu().numpy(), y_pred=all_y_pred.detach().cpu().numpy())
+    def _get_metrics_epoch_end(self, all_loss):
+        loss_ = torch.stack(all_loss).mean()
+        return loss_
     
     def on_train_epoch_end(self, unused=None):
-        all_y_true = [elem['y_true'] for elem in self.train_outputs[self.current_epoch]]
-        all_y_pred = [elem['y_pred'] for elem in self.train_outputs[self.current_epoch]]
+        all_loss = [elem['loss'] for elem in self.train_outputs[self.current_epoch]]
 
-        all_y_true = torch.cat(all_y_true, dim=0)
-        all_y_pred = torch.cat(all_y_pred, dim=0)
+        mean_loss = self._get_metrics_epoch_end(all_loss)
 
-        metrics = self._get_metrics_epoch_end(all_y_true, all_y_pred)
+        print(f"Epoch {self.current_epoch + 1} - Training Loss: {mean_loss.item():.4f}")
 
-        self.train_metrics_per_epoch[self.current_epoch] = metrics
-
-        # Print metrics
-        print(f"Epoch {self.current_epoch} - Training Metrics:")
-        print_classification_metrics(metrics)
+        self.train_metrics_per_epoch['mean_loss'] = mean_loss.item()
 
         del self.train_outputs[self.current_epoch]
-        del all_y_true
-        del all_y_pred
+        del mean_loss
 
     def on_validation_epoch_end(self, unused=None):
-        all_y_true = [elem['y_true'] for elem in self.validation_outputs[self.current_epoch]]
-        all_y_pred = [elem['y_pred'] for elem in self.validation_outputs[self.current_epoch]]
+        all_loss = [elem['loss'] for elem in self.validation_outputs[self.current_epoch]]
 
-        all_y_true = torch.cat(all_y_true, dim=0)
-        all_y_pred = torch.cat(all_y_pred, dim=0)
+        mean_loss = self._get_metrics_epoch_end(all_loss)
 
-        metrics = self._get_metrics_epoch_end(all_y_true, all_y_pred)
+        print(f"Epoch {self.current_epoch + 1} - Validation Loss: {mean_loss.item():.4f}")
 
-        self.validation_metrics_per_epoch[self.current_epoch] = metrics
-
-        # Print metrics
-        print(f"Epoch {self.current_epoch} - Validation Metrics:")
-        print_classification_metrics(metrics)
+        self.validation_metrics_per_epoch['mean_loss'] = mean_loss.item()
 
         del self.validation_outputs[self.current_epoch]
-        del all_y_true
-        del all_y_pred
+        del mean_loss
 
-    def on_test_epoch_end(self, unused=None):     
-        all_y_true = [elem['y_true'] for elem in self.test_outputs[self.current_epoch]]
-        all_y_pred = [elem['y_pred'] for elem in self.test_outputs[self.current_epoch]]
+    def on_test_epoch_end(self, unused=None):
+        all_loss = [elem['loss'] for elem in self.test_outputs[self.current_epoch]]
 
-        all_y_true = torch.cat(all_y_true, dim=0)
-        all_y_pred = torch.cat(all_y_pred, dim=0)
+        mean_loss = self._get_metrics_epoch_end(all_loss)
 
-        metrics = self._get_metrics_epoch_end(all_y_true, all_y_pred)
+        print(f"Epoch {self.current_epoch + 1} - Test Loss: {mean_loss.item():.4f}")
 
-        self.test_metrics_per_epoch[self.current_epoch] = metrics
-
-        # Print metrics
-        print(f"Epoch {self.current_epoch} - Test Metrics:")
-        print_classification_metrics(metrics)
+        self.test_metrics_per_epoch['mean_loss'] = mean_loss.item()
 
         del self.test_outputs[self.current_epoch]
-        del all_y_true
-        del all_y_pred
+        del mean_loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-3)
@@ -321,3 +282,4 @@ class NBGSTUnet(pl.LightningModule):
                 "monitor": "val_loss"
             }
         }
+    

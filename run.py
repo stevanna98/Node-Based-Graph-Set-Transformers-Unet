@@ -17,6 +17,7 @@ from sklearn.model_selection import StratifiedKFold, ParameterGrid
 
 from models.set_transformers_graph_unet import NBGSTUnet
 from models.gtunet import GTUNet
+from models.normative import NormativeGUNet
 from src.utils import GraphDataset
 
 if torch.cuda.is_available():
@@ -34,7 +35,7 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='GTUNet', help='Model type to train')
+    parser.add_argument('--model_type', type=str, default='NormativeGUNet', help='Model type to train')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')
@@ -132,6 +133,19 @@ def main():
                 dropout=args.dropout_ratio,
                 sum_res=args.sum_res
             ).to(device)
+        elif args.model_type == 'NormativeGUNet':
+            model = NormativeGUNet(
+                dim_input=n_features,
+                dim_hidden=args.dim_hidden,
+                dropout_ratio=args.dropout_ratio,
+                num_heads=args.num_heads,
+                ln=args.ln,
+                depth=args.depth,
+                pooling_ratio=args.pooling_ratio,
+                sum_res=args.sum_res,
+                lr=args.lr
+            ).to(device)
+
 
         # TRAINING #
         monitor = 'val_loss'
