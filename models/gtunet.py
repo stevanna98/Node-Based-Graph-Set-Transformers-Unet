@@ -6,7 +6,7 @@ import sys
 
 from typing import Callable, List, Union
 from torch import Tensor
-from torch_geometric.nn import TopKPooling, TransformerConv
+from torch_geometric.nn import TopKPooling, TransformerConv, GCNConv, GATConv, GATv2Conv
 from torch_geometric.nn.resolver import activation_resolver
 from torch_geometric.typing import OptTensor
 from torch_geometric.utils.repeat import repeat
@@ -33,6 +33,7 @@ class GTUNet(pl.LightningModule):
             dropout: float = 0.3,
             sum_res: bool = True,
             act: Union[str, Callable] = 'relu',
+            conv_layer: str = 'gcn'
     ):
         super(GTUNet, self).__init__()
         assert depth >= 1
@@ -47,15 +48,22 @@ class GTUNet(pl.LightningModule):
         self.dropout = dropout
         self.act = activation_resolver(act)
         self.sum_res = sum_res
+        self.conv_layer = conv_layer
 
-        self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
-        self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        ConvLayer = self.get_conv_layer()
+
+        # self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        # self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        self.down_in_hid_conv = ConvLayer(in_channels, hidden_channels, edge_dim, num_heads)
+        self.down_hid_conv = ConvLayer(hidden_channels, hidden_channels, edge_dim, num_heads)
 
         channels = hidden_channels
         in_channels = channels if sum_res else 2 * channels
 
-        self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
-        self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=1, beta=True)
+        # self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        # self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=1, beta=True)
+        self.up_in_hid_conv = ConvLayer(in_channels, hidden_channels, edge_dim, num_heads)
+        self.up_in_out_conv = ConvLayer(in_channels, out_channels, edge_dim, num_heads)
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
@@ -92,6 +100,16 @@ class GTUNet(pl.LightningModule):
         self.train_metrics_per_epoch = {}
         self.validation_metrics_per_epoch = {}
         self.test_metrics_per_epoch = {}
+
+    def get_conv_layer(self):
+        if self.conv_layer == 'gcn':
+            return lambda in_c, out_c, edge_dim, heads: GCNConv(in_c, out_c)
+        elif self.conv_layer == 'gat':
+            return lambda in_c, out_c, edge_dim, heads: GATConv(in_c, out_c, heads=heads)
+        elif self.conv_layer == 'gatv2':
+            return lambda in_c, out_c, edge_dim, heads: GATv2Conv(in_c, out_c, heads=heads)
+        else:
+            return lambda in_c, out_c, edge_dim, heads: TransformerConv(in_c, out_c, edge_dim=edge_dim, heads=heads, beta=True)
 
     def reset_parameters(self):
         r"""Resets all learnable parameters of the module."""
