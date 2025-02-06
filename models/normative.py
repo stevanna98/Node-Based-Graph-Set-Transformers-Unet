@@ -22,7 +22,6 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
                  dim_out: int,
                  num_heads: int,
                  ln: bool,
-                 attention_gate: bool,
                  dropout: float):
         super(NodeBasedGraphSetTransformers, self).__init__()
         self.enc_msab1 = MSAB(dim_in, dim_out, num_heads, ln, dropout)
