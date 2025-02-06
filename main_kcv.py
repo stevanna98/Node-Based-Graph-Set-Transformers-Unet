@@ -34,7 +34,7 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='NBGSTUnet', help='Model type to train')
+    parser.add_argument('--model_type', type=str, default='GTUNet', help='Model type to train')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')
@@ -142,6 +142,7 @@ def main():
                     dim_output=args.dim_output,
                     num_heads=args.num_heads,
                     depth=args.depth,
+                    lr=args.lr,
                     pool_ratios=args.pooling_ratio,
                     dropout=args.dropout_ratio,
                     sum_res=args.sum_res
@@ -207,7 +208,7 @@ def main():
 
     avg_metrics_df = pd.DataFrame(avg_metrics)
 
-    save_out_path = os.path.join(args.save, f'avg_metrics_mag_{args.thr}.csv')
+    save_out_path = os.path.join(args.output_dir, f'avg_metrics_mag_{args.thr}.csv')
     avg_metrics_df.to_csv(save_out_path, index=False)
     print(f'\nResults saved to: {save_out_path}')
             

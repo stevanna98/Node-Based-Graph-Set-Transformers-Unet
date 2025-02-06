@@ -34,10 +34,10 @@ class MMAB(pl.LightningModule):
         self.fc_o = nn.Linear(dim_V, dim_V)
 
         # Initialize weights
-        nn.init.xavier_uniform_(self.fc_q[0].weight)
-        nn.init.xavier_uniform_(self.fc_k[0].weight)
-        nn.init.xavier_uniform_(self.fc_v[0].weight)
-        nn.init.xavier_uniform_(self.fc_o[0].weight)
+        nn.init.xavier_uniform_(self.fc_q.weight)
+        nn.init.xavier_uniform_(self.fc_k.weight)
+        nn.init.xavier_uniform_(self.fc_v.weight)
+        nn.init.xavier_uniform_(self.fc_o.weight)
 
     def mask_attention(self, A, M):
         if M is not None:

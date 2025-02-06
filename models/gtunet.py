@@ -13,6 +13,7 @@ from torch_geometric.utils.repeat import repeat
 
 from src.utils import *
 from collections import defaultdict
+from src.modules import *
 
 class GTUNet(pl.LightningModule):
     def __init__(
@@ -23,7 +24,10 @@ class GTUNet(pl.LightningModule):
             output_intermediate_dim: int,
             dim_output: int,
             num_heads: int,
+            num_seeds: int,
             depth: int,
+            lr: int,
+            ln: bool,
             edge_dim: int = 1,
             pool_ratios: Union[float, List[float]] = 0.5,
             dropout: float = 0.3,
@@ -36,20 +40,22 @@ class GTUNet(pl.LightningModule):
         self.hidden_channels = hidden_channels
         self.out_channels = out_channels
         self.depth = depth
-        self.num_heads = num_heads
+        self.lr = lr
+        self.num_heads = num_heads 
+        self.num_seeds = num_seeds
         self.pool_ratios = repeat(pool_ratios, depth)
         self.dropout = dropout
         self.act = activation_resolver(act)
         self.sum_res = sum_res
 
-        self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=num_heads, beta=True)
-        self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=num_heads, beta=True)
+        self.down_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        self.down_hid_conv = TransformerConv(hidden_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
 
         channels = hidden_channels
         in_channels = channels if sum_res else 2 * channels
 
-        self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=num_heads, beta=True)
-        self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=num_heads, beta=True)
+        self.up_in_hid_conv = TransformerConv(in_channels, hidden_channels, edge_dim=edge_dim, heads=1, beta=True)
+        self.up_in_out_conv = TransformerConv(in_channels, out_channels, edge_dim=edge_dim, heads=1, beta=True)
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
@@ -64,6 +70,11 @@ class GTUNet(pl.LightningModule):
         self.up_convs.append(self.up_in_out_conv)
 
         self.reset_parameters()
+
+        # POOLING BY MULTIHEAD ATTENTION #
+        self.pma = PMA(out_channels, num_heads, num_seeds, ln, dropout)
+        if self.num_seeds > 1:
+            self.dec_sab = SAB(out_channels, out_channels, num_heads, ln, dropout)
 
         # Classifier
         self.output_mlp = nn.Sequential(
@@ -99,6 +110,9 @@ class GTUNet(pl.LightningModule):
             batch = edge_index.new_zeros(x.size(0))
         if edge_weight is None:
             edge_weight = x.new_ones(edge_index.size(1)).view(-1, 1)
+
+        batch_size = batch.max().item() + 1
+        matrix_dim = x.size(0) // batch_size
 
         x = self.down_convs[0](x, edge_index, edge_weight)
         x = self.act(x)
@@ -137,7 +151,12 @@ class GTUNet(pl.LightningModule):
             x = self.act(x) if i < self.depth - 1 else x
 
         x = F.dropout(x, p=self.dropout)
-        out = self.output_mlp(x)
+        x = x.view(batch_size, matrix_dim, x.size(-1))
+        encoded = self.pma(x)
+        if self.num_seeds > 1:
+            dec = self.dec_sab(encoded)
+            readout = torch.mean(dec, dim=1, keepdim=True)
+            out = self.output_mlp(readout)
         return out
 
     def __repr__(self) -> str:
@@ -158,8 +177,8 @@ class GTUNet(pl.LightningModule):
         return loss
     
     def _step(self, batch, batch_idx):
-        y = batch.y
-        out = self.forward(batch)
+        x, edge_index, batch_, y = batch.x, batch.edge_index, batch.batch, batch.y
+        out = self.forward(x, edge_index, batch=batch_)
         loss = self.task_loss(out, y)
         return loss, out, y
     
