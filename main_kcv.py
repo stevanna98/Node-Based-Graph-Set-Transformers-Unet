@@ -112,8 +112,8 @@ def main():
             print(f'Train set: {len(train_set)} subjects')
             print(f'Test set: {len(test_set)} subjects')
 
-            train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
-            val_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+            train_loader = DataLoader(train_set, batch_size=params['batch_size'], shuffle=True)
+            val_loader = DataLoader(test_set, batch_size=params['batch_size'], shuffle=False)
 
             n_features = dataset.num_node_features
 

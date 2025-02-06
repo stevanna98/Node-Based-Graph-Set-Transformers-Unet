@@ -41,10 +41,10 @@ def main():
     parser.add_argument('--log_dir', type=str, help='Log directory')
     parser.add_argument('--thr', type=int, default=10, help='Threshold for functional connectivity matrices')
 
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    parser.add_argument('--kfolds', type=int, default=10, help='Number of folds for cross-validation')
+    parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
 
     parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--out_channels', type=int, default=128, help='Output channels') # For GTUNet
@@ -52,7 +52,7 @@ def main():
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
     parser.add_argument('--dropout_ratio', type=float, default=0.3, help='Dropout ratio')
     parser.add_argument('--num_heads', type=int, default=8, help='Number of heads')
-    parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
+    parser.add_argument('--num_seeds', type=int, default=16, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
     parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.7, help='TopK pooling ratio')
