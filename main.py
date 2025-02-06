@@ -92,12 +92,12 @@ def main():
         'pooling_ratio': [0.7, 0.9]
     }
 
+    best_params = None
+    best_val_scores = float('inf')
+    best_results = []
+
     for params in ParameterGrid(param_grid):
         print(f'Tuning with params: {params}')
-
-        val_scores = []
-        best_params = None
-        best_val_score = float('-inf')
 
         # K-FOLD CROSS-VALIDATION #
         skf = StratifiedKFold(n_splits=args.kfolds, shuffle=True, random_state=seed_value)
@@ -168,36 +168,49 @@ def main():
 
             fold_results.append(model.validation_metrics_per_epoch)
 
+        val_f1_score = []
+        for fold in range(args.kfolds):
+            for key, value in fold_results[fold].items():
+                val_f1_score.append(value[2])
+
+        avg_val_score = np.mean(val_f1_score)
+        if avg_val_score < best_val_scores:
+            print('BEST PARAMETERS UPDATED')
+            best_val_scores = avg_val_score
+            best_params = params
+            best_results = fold_results
+
     # AVERAGE METRICS #
     accs = []
     f1s = []
     roc_aucs = []
     mccs = []
     for fold in range(args.kfolds):
-        for key, value in fold_results[fold].items():
+        for key, value in best_results[fold].items():
             accs.append(value[1])
             f1s.append(value[2])
             mccs.append(value[3])
             roc_aucs.append(value[4])
 
+    print(f'\nBest parameters: {best_params}')
     print(f'\nAverage Accuracy: {np.mean(accs):.4f} ± {np.std(accs):.4f}')
     print(f'Average F1-Score: {np.mean(f1s):.4f} ± {np.std(f1s):.4f}')
     print(f'Average MCC: {np.mean(mccs):.4f} ± {np.std(mccs):.4f}')
     print(f'Average ROC-AUC: {np.mean(roc_aucs):.4f} ± {np.std(roc_aucs):.4f}')
 
-    # SAVE RESULTS #
-    results = {
+    # Save results to CSV
+    avg_metrics = {
         'Metric': ['Accuracy', 'F1-Score', 'MCC', 'ROC-AUC'],
-        'Mean': [np.mean(accs), np.mean(f1s), np.mean(mccs), np.mean(roc_aucs)],
-        'Std': [np.std(accs), np.std(f1s), np.std(mccs), np.std(roc_aucs)]
+        'Average': [np.mean(accs), np.mean(f1s), np.mean(mccs), np.mean(roc_aucs)],
+        'Std Dev': [np.std(accs), np.std(f1s), np.std(mccs), np.std(roc_aucs)]
     }
 
-    results_df = pd.DataFrame(results)
+    avg_metrics_df = pd.DataFrame(avg_metrics)
 
-    save_dir = os.path.join(args.output_dir, f'{args.model_type}_results_{args.thr}.csv')
-    results_df.to_csv(save_dir, index=False)
-    print(f'\nResults saved at {save_dir}')
-
+    save_out_path = os.path.join(args.save, f'avg_metrics_mag_{args.thr}.csv')
+    avg_metrics_df.to_csv(save_out_path, index=False)
+    print(f'\nResults saved to: {save_out_path}')
+            
 if __name__ == '__main__':
     print(f'Using device: {device}')
     main()
