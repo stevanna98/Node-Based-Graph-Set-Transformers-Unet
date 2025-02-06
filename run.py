@@ -35,35 +35,35 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='NBGSTUnet', help='Model type to train')
-    parser.add_argument('--conv_type', type=str, default='gcn', help='Convolutional layer type')
+    parser.add_argument('--model_type', type=str, default='GTUNet', help='Model type to train')
+    parser.add_argument('--conv_type', type=str, default='trans', help='Convolutional layer type')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')
     parser.add_argument('--log_dir', type=str, help='Log directory')
     parser.add_argument('--thr', type=int, default=10, help='Threshold for functional connectivity matrices')
 
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    parser.add_argument('--kfolds', type=int, default=10, help='Number of folds for cross-validation')
+    parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
 
     parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
-    parser.add_argument('--gnn_intermediate_dim', type=int, default=64, help='Intermediate GNN dimension')
+    parser.add_argument('--gnn_intermediate_dim', type=int, default=128, help='Intermediate GNN dimension')
     parser.add_argument('--out_channels', type=int, default=128, help='Output channels') # For GTUNet
-    parser.add_argument('--gnn_out_node_dim', type=int, default=64, help='Output node dimension')
+    parser.add_argument('--gnn_out_node_dim', type=int, default=128, help='Output node dimension')
     parser.add_argument('--output_intermediate_dim', type=int, default=64, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
     parser.add_argument('--dropout_ratio', type=float, default=0.3, help='Dropout ratio')
     parser.add_argument('--num_heads', type=int, default=8, help='Number of heads')
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
-    parser.add_argument('--num_layers', type=int, default=3, help='Number of layers')
+    parser.add_argument('--num_layers', type=int, default=2, help='Number of layers')
     parser.add_argument('--gat_heads', type=int, default=8, help='Number of GAT heads')
     parser.add_argument('--readout', type=str, default='mean', help='Readout function')
     parser.add_argument('--ln', default=True, help='Layer normalization')
     parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.7, help='TopK pooling ratio')
-    parser.add_argument('--sum_res', default=False, help='Sum residual')
+    parser.add_argument('--sum_res', default=True, help='Sum residual')
 
     args = parser.parse_args()
 
@@ -123,21 +123,22 @@ def main():
                 sum_res=args.sum_res,
                 lr=args.lr
             ).to(device)
-        elif args.model_type == 'gnn':
+        elif args.model_type == 'GNN':
             model = GNN(
                 conv_type=args.conv_type,
                 in_channels=n_features,
-                gnn_intermediate_dim=args.gnn_intermediate_dim,
-                gnn_out_node_dim=args.gnn_out_node_dim,
+                gnn_intermediate_dim=args.dim_hidden,
+                gnn_output_node_dim=args.gnn_intermediate_dim,
                 output_nn_intermediate_dim=args.output_intermediate_dim,
                 output_nn_out_dim=args.dim_output,
                 num_layers=args.num_layers,
                 gat_heads=args.gat_heads,
                 readout=args.readout,
                 gat_dropouts=args.dropout_ratio,
+                dropout_ratio=args.dropout_ratio,
                 lr=args.lr
             ).to(device)
-        elif args.model_type == 'GTUnet':
+        elif args.model_type == 'GTUNet':
             model = GTUNet(
                 in_channels=n_features,
                 hidden_channels=args.dim_hidden,
@@ -145,8 +146,10 @@ def main():
                 output_intermediate_dim=args.output_intermediate_dim,
                 dim_output=args.dim_output,
                 num_heads=args.num_heads,
+                num_seeds=args.num_seeds,
                 depth=args.depth,
                 lr=args.lr,
+                ln=args.ln,
                 pool_ratios=args.pooling_ratio,
                 dropout=args.dropout_ratio,
                 sum_res=args.sum_res,

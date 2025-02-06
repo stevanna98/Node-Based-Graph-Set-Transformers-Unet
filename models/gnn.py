@@ -219,19 +219,19 @@ class GNN(pl.LightningModule):
         return loss, task_predictions, y, graph_x
     
     def training_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, outs, ys, graph_x = self._step(batch, batch_idx)
         self.log('train_loss', loss)
         self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, outs, ys, graph_x = self._step(batch, batch_idx)
         self.log('val_loss', loss)
         self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def test_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, outs, ys, graph_x = self._step(batch, batch_idx)
         self.log('test_loss', loss)
         self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
