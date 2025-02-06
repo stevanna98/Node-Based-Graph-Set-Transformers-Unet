@@ -35,7 +35,7 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='NormativeGUNet', help='Model type to train')
+    parser.add_argument('--model_type', type=str, default='NBGSTUnet', help='Model type to train')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')

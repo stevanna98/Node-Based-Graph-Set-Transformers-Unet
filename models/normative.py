@@ -14,33 +14,7 @@ from src.modules import *
 from src.mask_modules import *
 from src.utils import *
 from src.masking import *
-
-class AttentionGate(pl.LightningModule):
-    def __init__(self, dim_in: int):
-        super(AttentionGate, self).__init__()   
-        self.W_res = nn.Sequential(
-            nn.Linear(dim_in, dim_in),
-            nn.LayerNorm(dim_in)
-        )
-        self.W_up = nn.Sequential(
-            nn.Linear(dim_in, dim_in),
-            nn.LayerNorm(dim_in)
-        )
-        self.psi = nn.Sequential(
-            nn.Linear(dim_in, 1),
-            nn.LayerNorm(1)
-        )
-
-    def forward(self, res, up):
-        res_proj = self.W_res(res)
-        up_proj = self.W_up(up)     
-
-        attn_map = F.leaky_relu(res_proj + up_proj)
-        # attn_map = torch.sigmoid(self.psi(attn_map))
-        attn_map = torch.softmax(self.psi(attn_map), dim=1)
-
-        res_weighted = attn_map * res  
-        return res_weighted, attn_map
+from src.attention_gate import AttentionGate
     
 class NodeBasedGraphSetTransformers(pl.LightningModule):
     def __init__(self,
@@ -48,6 +22,7 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
                  dim_out: int,
                  num_heads: int,
                  ln: bool,
+                 attention_gate: bool,
                  dropout: float):
         super(NodeBasedGraphSetTransformers, self).__init__()
         self.enc_msab1 = MSAB(dim_in, dim_out, num_heads, ln, dropout)
@@ -273,7 +248,8 @@ class NormativeGUNet(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-3)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=20, gamma=0.5)
 
         return {
             "optimizer": optimizer,
