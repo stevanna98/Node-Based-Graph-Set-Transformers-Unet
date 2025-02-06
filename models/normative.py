@@ -172,7 +172,11 @@ class NormativeGUNet(pl.LightningModule):
     
     def task_loss(self, true_x, recon_x):
         recon_loss = F.mse_loss(recon_x, true_x, reduction='mean')
-        return recon_loss
+
+        lambda_sym = 0.01
+        sym_penalty = F.mse_loss(recon_x, recon_x.transpose(-2, -1), reduction='mean')
+        
+        return recon_loss + lambda_sym * sym_penalty
     
     def _step(self, batch, batch_idx):
         recon_x = self.forward(batch)
