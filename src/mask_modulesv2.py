@@ -44,7 +44,7 @@ class MMAB(pl.LightningModule):
 
     def mask_attention(self, A, M):
         if M is not None:
-            M = M.repeat(self.num_heads, 1, 1).to(device)
+            M = M.to(device)
             A = A.masked_fill(M == 0, -1e30)
         return A
     
