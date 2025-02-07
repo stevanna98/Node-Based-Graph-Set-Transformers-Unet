@@ -10,8 +10,8 @@ from torch import Tensor
 from torch_geometric.utils.repeat import repeat 
 from torch_geometric.nn import TopKPooling, SAGPooling
 
-from src.modules import *
-from src.mask_modules import *
+from src.modulesv2 import *
+from src.mask_modulesv2 import *
 from src.utils import *
 from src.masking import *
 from src.attention_gate import AttentionGate
