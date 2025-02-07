@@ -18,6 +18,7 @@ from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from models.set_transformers_graph_unet import NBGSTUnet
 from models.gtunet import GTUNet
 from models.normative import NormativeGUNet
+from models.network import MaskedAttentionGraphs
 from src.utils import GraphDataset
 
 if torch.cuda.is_available():
@@ -35,7 +36,7 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='NBGSTUnet', help='Model type to train')
+    parser.add_argument('--model_type', type=str, default='net', help='Model type to train')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')
@@ -148,7 +149,18 @@ def main():
                 lr=args.lr,
                 attention_gate=args.attention_gate
             ).to(device)
-
+        elif args.model_type == 'net':
+            model = MaskedAttentionGraphs(
+                dim_input=n_features,
+                dim_hidden=args.dim_hidden,
+                dim_output=args.dim_output,
+                dim_intermediate_output=args.output_intermediate_dim,
+                dropout_ratio=args.dropout_ratio,
+                num_heads=args.num_heads,
+                num_seeds=args.num_seeds,
+                ln=args.ln,
+                lr=args.lr
+            ).to(device)
 
         # TRAINING #
         monitor = 'val_loss'
