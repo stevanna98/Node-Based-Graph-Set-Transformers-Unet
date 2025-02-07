@@ -45,7 +45,7 @@ class MMAB(pl.LightningModule):
     def mask_attention(self, A, M):
         if M is not None:
             M = M.to(device)
-            A = A.masked_fill(M == 0, -1e30)
+            A = A.masked_fill(M == 0, -1e20)
         return A
     
     def forward(self, Q, K, M):

@@ -47,7 +47,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
 
-    parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
+    parser.add_argument('--dim_hidden', type=int, default=128, help='Hidden dimension')
     parser.add_argument('--out_channels', type=int, default=128, help='Output channels') # For GTUNet
     parser.add_argument('--output_intermediate_dim', type=int, default=64, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
@@ -160,7 +160,7 @@ def main():
 
         trainer = L.Trainer(
             max_epochs=args.epochs,
-            callbacks=callbacks,
+            # callbacks=callbacks,
             accelerator=device,
             logger=tensorboardlogger,
             enable_progress_bar=True
