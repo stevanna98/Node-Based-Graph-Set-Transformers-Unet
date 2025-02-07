@@ -5,17 +5,31 @@ import networkx as nx
 from torch_geometric.data import Data, InMemoryDataset
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, roc_auc_score, matthews_corrcoef, classification_report
 
-def thresholding(matrix, thr):
-    triu_ids = np.triu_indices_from(matrix, k=1)
-    fc_values = matrix[triu_ids]
+# def thresholding(matrix, thr):
+#     triu_ids = np.triu_indices_from(matrix, k=1)
+#     fc_values = matrix[triu_ids]
 
-    threshold = np.percentile(fc_values, 100 - thr)
+#     threshold = np.percentile(fc_values, 100 - thr)
 
-    adjacency_matrix = (matrix >= threshold).astype(int)
-    adjacency_matrix = np.maximum(adjacency_matrix, adjacency_matrix.T)
-    np.fill_diagonal(adjacency_matrix, 0)
+#     adjacency_matrix = (matrix >= threshold).astype(int)
+#     adjacency_matrix = np.maximum(adjacency_matrix, adjacency_matrix.T)
+#     np.fill_diagonal(adjacency_matrix, 0)
 
-    return adjacency_matrix
+#     return adjacency_matrix
+
+def thresholding(matrix, thr=95):
+    adj_matrix = np.zeros_like(matrix, dtype=int)
+    
+    for i in range(matrix.shape[0]):
+        threshold = np.percentile(matrix[i, :], thr)
+        adj_matrix[i, :] = (matrix[i, :] >= threshold).astype(int)
+    
+    # Make the matrix symmetric
+    adj_matrix = np.triu(adj_matrix) + np.triu(adj_matrix, 1).T
+    
+    # np.fill_diagonal(adj_matrix, 0)
+    
+    return adj_matrix
 
 class GraphDataset(InMemoryDataset):
     def __init__(self, func_matrices, labels, threshold=5, root=None, transform=None, pre_transform=None, weights=None):
