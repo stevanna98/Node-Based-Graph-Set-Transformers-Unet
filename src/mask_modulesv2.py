@@ -63,8 +63,7 @@ class MMAB(pl.LightningModule):
 
             A = torch.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_head), 2)
             A = self.mask_attention(A, M)
-            # head_output = Q_ + A.bmm(V_)
-            head_output = A.bmm(V_)
+            head_output = Q_ + A.bmm(V_)
             heads_outputs.append(head_output)
 
         O = torch.cat(heads_outputs, 2)

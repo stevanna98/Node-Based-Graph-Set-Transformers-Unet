@@ -81,6 +81,13 @@ class MaskedAttentionGraphs(pl.LightningModule):
     def task_loss(self, y_pred, y_true):
         y_true = y_true.view(y_pred.shape)
         loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
+
+        l1_lambda = 1e-4
+        l2_lambda = 1e-4
+        l1_norm = sum(p.abs().sum() for p in self.parameters())
+        l2_norm = sum(p.pow(2.0).sum() for p in self.parameters())
+        loss += l1_lambda * l1_norm + l2_lambda * l2_norm
+
         return loss
     
     def _step(self, batch, batch_idx):

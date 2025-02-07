@@ -26,13 +26,14 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
         super(NodeBasedGraphSetTransformers, self).__init__()
         self.enc_msab1 = MSAB(dim_in, dim_out, num_heads, ln, dropout)
         self.enc_msab2 = MSAB(dim_out, dim_out, num_heads, ln, dropout)
-        self.enc_sab1 = SAB(dim_out, dim_out, num_heads, ln, dropout)
+        # self.enc_sab1 = SAB(dim_out, dim_out, num_heads, ln, dropout)
 
     def forward(self, X, M):
         enc1 = self.enc_msab1(X, M)
-        enc2 = self.enc_msab2(enc1, M) + enc1
-        enc3 = self.enc_sab1(enc2) + enc2
-        return enc3
+        # enc2 = self.enc_msab2(enc1, M) + enc1
+        # enc3 = self.enc_sab1(enc2) + enc2
+        # return enc3
+        return enc1
 
 class NBGSTUnet(pl.LightningModule):
     def __init__(self,

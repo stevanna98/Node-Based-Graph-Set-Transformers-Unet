@@ -36,12 +36,12 @@ warnings.filterwarnings('ignore')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--model_type', type=str, default='net', help='Model type to train')
+    parser.add_argument('--model_type', type=str, default='NBGSTUnet', help='Model type to train')
 
     parser.add_argument('--data_dir', type=str, help='Data directory')
     parser.add_argument('--label_dir', type=str, help='Labels directory')
     parser.add_argument('--log_dir', type=str, help='Log directory')
-    parser.add_argument('--thr', type=int, default=20, help='Threshold for functional connectivity matrices')
+    parser.add_argument('--thr', type=int, default=30, help='Threshold for functional connectivity matrices')
 
     parser.add_argument('--epochs', type=int, default=200, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
@@ -165,7 +165,7 @@ def main():
         # TRAINING #
         monitor = 'val_loss'
         early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
-        lr_monitor = LearningRateMonitor(logging_interval='epoch')
+        lr_monitor = LearningRateMonitor(logging_interval='step')
         callbacks = [early_stopping, lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'{args.model_type}_fold_{fold}')
