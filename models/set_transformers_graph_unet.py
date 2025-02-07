@@ -30,6 +30,8 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
 
     def forward(self, X, M):
         enc1 = self.enc_msab1(X, M)
+        print(enc1.shape)
+        sys.exit()
         enc2 = self.enc_msab2(enc1, M) + enc1
         enc3 = self.enc_sab1(enc2) + enc2
         return enc3
