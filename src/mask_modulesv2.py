@@ -82,3 +82,4 @@ class MSAB(pl.LightningModule):
 
     def forward(self, X, M):
         return self.mmab(X, X, M)
+    
