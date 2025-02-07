@@ -56,9 +56,9 @@ def main():
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
-    parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
+    parser.add_argument('--depth', type=int, default=2, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.9, help='TopK pooling ratio')
-    parser.add_argument('--sum_res', default=False, help='Sum residual')
+    parser.add_argument('--sum_res', default=True, help='Sum residual')
     parser.add_argument('--attention_gate', default=False, help='Attention gate')
 
     args = parser.parse_args()

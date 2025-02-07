@@ -80,7 +80,8 @@ class NBGSTUnet(pl.LightningModule):
         self.pools = torch.nn.ModuleList()
         self.down_nets.append(self.down_in_hid_net)
         for i in range(depth):
-            self.pools.append(TopKPooling(channels, self.pooling_ratio[i]))
+            # self.pools.append(TopKPooling(channels, self.pooling_ratio[i]))
+            self.pools.append(SAGPooling(channels, self.pooling_ratio[i]))
             self.down_nets.append(self.down_hid_net)
 
         self.up_nets = torch.nn.ModuleList()
