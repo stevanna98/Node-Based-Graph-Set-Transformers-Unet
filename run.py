@@ -29,7 +29,7 @@ else:
     device = 'cpu'
 
 # Set random seed
-seed_value = 42
+seed_value = 27
 seed_everything(seed_value, workers=True)
 
 warnings.filterwarnings('ignore')
@@ -56,7 +56,7 @@ def main():
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
-    parser.add_argument('--depth', type=int, default=2, help='Depth of GTUNet')
+    parser.add_argument('--depth', type=int, default=3, help='Depth of GTUNet')
     parser.add_argument('--pooling_ratio', type=float, default=0.9, help='TopK pooling ratio')
     parser.add_argument('--sum_res', default=True, help='Sum residual')
     parser.add_argument('--attention_gate', default=False, help='Attention gate')
@@ -172,7 +172,7 @@ def main():
 
         trainer = L.Trainer(
             max_epochs=args.epochs,
-            callbacks=callbacks,
+            # callbacks=callbacks,
             accelerator=device,
             logger=tensorboardlogger,
             enable_progress_bar=True
