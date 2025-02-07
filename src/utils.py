@@ -17,19 +17,11 @@ from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, roc_auc_
 
 #     return adjacency_matrix
 
-def thresholding(matrix, thr=95):
-    adj_matrix = np.zeros_like(matrix, dtype=int)
-    
-    for i in range(matrix.shape[0]):
-        threshold = np.percentile(matrix[i, :], thr)
-        adj_matrix[i, :] = (matrix[i, :] >= threshold).astype(int)
-    
-    # Make the matrix symmetric
-    adj_matrix = np.triu(adj_matrix) + np.triu(adj_matrix, 1).T
-    
-    # np.fill_diagonal(adj_matrix, 0)
-    
-    return adj_matrix
+def thresholding(corr, percentile):
+    threshold = np.percentile(corr, percentile)  # Calcola il valore soglia
+    corr_matrix_copy = np.copy(corr)  # Copia della matrice originale
+    corr_matrix_copy[corr_matrix_copy < threshold] = 0  # Azzera valori sotto la soglia
+    return corr_matrix_copy
 
 class GraphDataset(InMemoryDataset):
     def __init__(self, func_matrices, labels, threshold=5, root=None, transform=None, pre_transform=None, weights=None):

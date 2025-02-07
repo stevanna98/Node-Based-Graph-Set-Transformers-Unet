@@ -29,6 +29,7 @@ class MaskedAttentionGraphs(pl.LightningModule):
         self.dropout_ratio = dropout_ratio
 
         # Encoder
+        # conv layer
         self.enc_msab1 = MSAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab2 = MSAB(dim_hidden, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab3 = MSAB(dim_hidden, dim_hidden, num_heads, ln, dropout_ratio)
@@ -82,8 +83,8 @@ class MaskedAttentionGraphs(pl.LightningModule):
         y_true = y_true.view(y_pred.shape)
         loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
 
-        l1_lambda = 1e-4
-        l2_lambda = 1e-4
+        l1_lambda = 5e-3
+        l2_lambda = 5e-3
         l1_norm = sum(p.abs().sum() for p in self.parameters())
         l2_norm = sum(p.pow(2.0).sum() for p in self.parameters())
         loss += l1_lambda * l1_norm + l2_lambda * l2_norm
