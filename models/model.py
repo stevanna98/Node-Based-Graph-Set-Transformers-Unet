@@ -94,14 +94,14 @@ class Model(pl.LightningModule):
         enc3 = self.enc_msab3(enc2, mask) + enc2
         enc4 = self.enc_sab2(enc3) + enc3
 
-        encoed = self.pma(enc4)
+        encoded = self.pma(enc4)
         if self.num_seeds > 1:
             decoded = self.dec_sab(encoded)
             readout = torch.mean(decoded, dim=1, keepdim=True)
 
             out = self.output_mlp(readout)
         else:
-            out = self.output_mlp(encoed)
+            out = self.output_mlp(encoded)
 
         return out, mask
     
