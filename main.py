@@ -54,16 +54,16 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
 
-    parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension')
-    parser.add_argument('--dim_hidden_', type=int, default=128, help='Hidden dimension')
-    parser.add_argument('--output_intermediate_dim', type=int, default=64, help='Intermediate output dimension')
+    parser.add_argument('--dim_hidden', type=int, default=1024, help='Hidden dimension')
+    parser.add_argument('--dim_hidden_', type=int, default=256, help='Hidden dimension')
+    parser.add_argument('--output_intermediate_dim', type=int, default=128, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
     parser.add_argument('--dropout_ratio', type=float, default=0.3, help='Dropout ratio')
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')    
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
-    parser.add_argument('--l1_lambda', type=float, default=0.0, help='L1 regularization lambda')
-    parser.add_argument('--lambda_sym', type=float, default=0.0, help='Symmetry regularization lambda')
+    parser.add_argument('--l1_lambda', type=float, default=0.01, help='L1 regularization lambda')
+    parser.add_argument('--lambda_sym', type=float, default=0.01, help='Symmetry regularization lambda')
 
     args = parser.parse_args()
 
@@ -120,7 +120,8 @@ def main():
         monitor = 'val_loss'
         early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        callbacks = [early_stopping, lr_monitor]
+        # callbacks = [early_stopping, lr_monitor]
+        callbacks = [lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'fold_{fold}')
 

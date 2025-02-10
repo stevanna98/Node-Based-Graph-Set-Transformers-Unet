@@ -105,12 +105,15 @@ class Model(pl.LightningModule):
         y_true = y_true.view(y_pred.shape)
         bce_loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
 
-        l1_reg = self.l1_lambda * torch.sum(torch.log(torch.abs(mask)))
+        l1_reg = self.l1_lambda * torch.sum(torch.abs(mask))
         
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)
 
         loss = bce_loss + l1_reg + sym_reg
+
+        print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
+    
         return loss
     
     def _step(self, batch, batch_idx):
