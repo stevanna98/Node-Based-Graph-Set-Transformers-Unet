@@ -28,7 +28,8 @@ class Model(pl.LightningModule):
                  lr: float,
                  l1_lambda: float,
                  l2_lambda: float,
-                 lambda_sym: float):
+                 lambda_sym: float,
+                 mask_thr: float):
         super(Model, self).__init__()
         self.save_hyperparameters()
         self.dim_input = dim_input
@@ -45,6 +46,7 @@ class Model(pl.LightningModule):
         self.l1_lambda = l1_lambda  
         self.l2_lambda = l2_lambda
         self.lambda_sym = lambda_sym
+        self.mask_thr = mask_thr
 
         # ENCODER #
         # self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
@@ -82,6 +84,10 @@ class Model(pl.LightningModule):
         self.validation_metrics_per_epoch = {}
         self.test_metrics_per_epoch = {}
 
+    def threshold_mask(self, mask, threshold):
+        mask = torch.where(mask < threshold, torch.zeros_like(mask), mask)
+        return mask
+
     def forward(self, X):
         # x = self.enc_sab(X)
         # x_ = x.permute(0, 2, 1).unsqueeze(-1) 
@@ -90,8 +96,9 @@ class Model(pl.LightningModule):
         # mask = mask.squeeze(-1).permute(0, 2, 1)
 
         mask = self.sparser(X, X)
+        mask = self.threshold_mask(mask, self.mask_thr)
 
-        enc1 = self.enc_msab1(X, mask) 
+        enc1 = self.enc_msab1(X, mask)
         enc2 = self.enc_msab2(enc1, mask)
         enc3 = self.enc_msab3(enc2, mask)
         enc4 = self.enc_sab2(enc3)
