@@ -45,7 +45,6 @@ class MAB(pl.LightningModule):
             V_ = self.W_v[head](K)
 
             A = torch.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_head), 2)
-            # head_output = Q_ + A.bmm(V_)
             head_output = A.bmm(V_)
             heads_outputs.append(head_output)
 

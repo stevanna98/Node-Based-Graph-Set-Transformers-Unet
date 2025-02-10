@@ -58,12 +58,13 @@ def main():
     parser.add_argument('--dim_hidden_', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--output_intermediate_dim', type=int, default=128, help='Intermediate output dimension')
     parser.add_argument('--dim_output', type=int, default=1, help='Output dimension')
-    parser.add_argument('--dropout_ratio', type=float, default=0.3, help='Dropout ratio')
+    parser.add_argument('--dropout_ratio', type=float, default=0.5, help='Dropout ratio')
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')    
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
-    parser.add_argument('--l1_lambda', type=float, default=0.01, help='L1 regularization lambda')
-    parser.add_argument('--lambda_sym', type=float, default=0.01, help='Symmetry regularization lambda')
+    parser.add_argument('--l1_lambda', type=float, default=1e-4, help='L1 regularization lambda')
+    parser.add_argument('--l2_lambda', type=float, default=1e-4, help='L2 regularization')
+    parser.add_argument('--lambda_sym', type=float, default=1e-3, help='Symmetry regularization lambda')
 
     args = parser.parse_args()
 
@@ -113,15 +114,15 @@ def main():
             ln=args.ln,
             lr=args.lr,
             l1_lambda=args.l1_lambda,
+            l2_lambda=args.l2_lambda,
             lambda_sym=args.lambda_sym
         ).to(device)
 
         # TRAINING #
         monitor = 'val_loss'
-        early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
+        early_stopping = EarlyStopping(monitor=monitor, patience=10, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        # callbacks = [early_stopping, lr_monitor]
-        callbacks = [lr_monitor]
+        callbacks = [early_stopping, lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'fold_{fold}')
 

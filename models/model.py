@@ -26,6 +26,7 @@ class Model(pl.LightningModule):
                  ln: bool,
                  lr: float,
                  l1_lambda: float,
+                 l2_lambda: float,
                  lambda_sym: float):
         super(Model, self).__init__()
         self.save_hyperparameters()
@@ -40,21 +41,21 @@ class Model(pl.LightningModule):
         self.ln = ln
         self.lr = lr
 
-        self.l1_lambda = l1_lambda  
+        self.l1_lambda = l1_lambda
+        self.l2_lambda = l2_lambda
         self.lambda_sym = lambda_sym
 
         # ENCODER #
         self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.sparser = nn.Sequential(
             nn.Conv2d(dim_hidden, dim_input, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(dim_input),
-            nn.ReLU()
+            nn.BatchNorm2d(dim_input)
         )
 
         self.enc_msab1 = MSAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab2 = MSAB(dim_hidden, dim_hidden_, num_heads, ln, dropout_ratio)
         self.enc_msab3 = MSAB(dim_hidden_, dim_hidden_, num_heads, ln, dropout_ratio)
-        self.enc_sab2 = SAB(dim_hidden_, dim_hidden_, num_heads, ln, dropout_ratio)
+        self.enc_sab2 = SAB(dim_hidden, dim_hidden_, num_heads, ln, dropout_ratio)
 
         # DECODER #
         self.pma = PMA(dim_hidden_, num_heads, num_seeds, ln, dropout_ratio)
@@ -80,24 +81,24 @@ class Model(pl.LightningModule):
 
     def forward(self, X):
         x = self.enc_sab(X)
-        x_ = x.permute(0, 2, 1).unsqueeze(-1) 
+        x_ = x.permute(0, 2, 1).unsqueeze(-1)
 
         mask = self.sparser(x_)
         mask = mask.squeeze(-1).permute(0, 2, 1)
 
         enc1 = self.enc_msab1(X, mask) + x
-        enc2 = self.enc_msab2(enc1, mask) 
-        enc3 = self.enc_msab3(enc2, mask)
-        enc4 = self.enc_sab2(enc3) 
+        # enc2 = self.enc_msab2(enc1, mask)
+        # enc3 = self.enc_msab3(enc2, mask)
+        enc4 = self.enc_sab2(enc1)
 
-        encoed = self.pma(enc4)
+        encoded = self.pma(enc4)
         if self.num_seeds > 1:
-            decoded = self.dec_sab(enc4)
+            decoded = self.dec_sab(encoded)
             readout = torch.mean(decoded, dim=1, keepdim=True)
 
             out = self.output_mlp(readout)
         else:
-            out = self.output_mlp(encoed)
+            out = self.output_mlp(encoded)
 
         return out, mask
     
@@ -110,10 +111,9 @@ class Model(pl.LightningModule):
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)
 
-        loss = bce_loss + l1_reg + sym_reg
+        l2_norm = self.l2_lambda * sum(p.pow(2.0).sum() for p in self.parameters())
 
-        print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
-    
+        loss = bce_loss + l1_reg + sym_reg + l2_norm
         return loss
     
     def _step(self, batch, batch_idx):
