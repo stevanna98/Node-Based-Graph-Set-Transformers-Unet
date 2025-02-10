@@ -46,7 +46,7 @@ class Model(pl.LightningModule):
         # ENCODER #
         self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.sparser = nn.Sequential(
-            nn.Conv2d(dim_hidden, dim_input, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(dim_hidden, dim_input, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(dim_input),
             nn.ReLU()
         )
@@ -118,9 +118,9 @@ class Model(pl.LightningModule):
     
     def _step(self, batch, batch_idx):
         X, y = batch
-        y_pred, mask = self.forward(X)
-        loss = self.loss_function(y, y_pred, mask)
-        return loss, y, y_pred, mask
+        out, mask = self.forward(X)
+        loss = self.loss_function(y, out, mask)
+        return loss, y, out, mask
     
     def training_step(self, batch, batch_idx):
         loss, ys, outs, mask = self._step(batch, batch_idx)
