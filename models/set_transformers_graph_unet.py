@@ -30,10 +30,9 @@ class NodeBasedGraphSetTransformers(pl.LightningModule):
 
     def forward(self, X, M):
         enc1 = self.enc_msab1(X, M)
-        # enc2 = self.enc_msab2(enc1, M) + enc1
-        # enc3 = self.enc_sab1(enc2) + enc2
-        # return enc3
-        return enc1
+        enc2 = self.enc_msab2(enc1, M) + enc1
+        enc3 = self.enc_sab1(enc2) + enc2
+        return enc3
 
 class NBGSTUnet(pl.LightningModule):
     def __init__(self,
@@ -82,7 +81,7 @@ class NBGSTUnet(pl.LightningModule):
         self.down_nets.append(self.down_in_hid_net)
         for i in range(depth):
             # self.pools.append(TopKPooling(channels, self.pooling_ratio[i]))
-            self.pools.append(SAGPooling(channels, self.pooling_ratio[i]))
+            self.pools.append(SAGPooling(channels, self.pooling_ratio[i], nonlinearity='relu'))
             self.down_nets.append(self.down_hid_net)
 
         self.up_nets = torch.nn.ModuleList()
