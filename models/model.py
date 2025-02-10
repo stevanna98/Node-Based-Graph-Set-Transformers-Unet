@@ -11,6 +11,7 @@ from torch_geometric.utils.repeat import repeat
 
 from src.modulesv2 import *
 from src.mask_modulesv2 import *
+from src.sparser import Sparser
 from src.utils import *
 
 class Model(pl.LightningModule):
@@ -44,12 +45,13 @@ class Model(pl.LightningModule):
         self.lambda_sym = lambda_sym
 
         # ENCODER #
-        self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
-        self.sparser = nn.Sequential(
-            nn.Conv2d(dim_hidden, dim_input, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(dim_input),
-            nn.ReLU()
-        )
+        # self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
+        # self.sparser = nn.Sequential(
+        #     nn.Conv2d(dim_hidden, dim_input, kernel_size=3, stride=1, padding=1),
+        #     nn.BatchNorm2d(dim_input),
+        #     nn.ReLU()
+        # )
+        self.sparser = Sparser(dim_input, dim_input, dim_hidden, num_heads, ln)
 
         self.enc_msab1 = MSAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab2 = MSAB(dim_hidden, dim_hidden_, num_heads, ln, dropout_ratio)
@@ -79,13 +81,15 @@ class Model(pl.LightningModule):
         self.test_metrics_per_epoch = {}
 
     def forward(self, X):
-        x = self.enc_sab(X)
-        x_ = x.permute(0, 2, 1).unsqueeze(-1) 
+        # x = self.enc_sab(X)
+        # x_ = x.permute(0, 2, 1).unsqueeze(-1) 
 
-        mask = self.sparser(x_)
-        mask = mask.squeeze(-1).permute(0, 2, 1)
+        # mask = self.sparser(x_)
+        # mask = mask.squeeze(-1).permute(0, 2, 1)
 
-        enc1 = self.enc_msab1(X, mask) + x
+        mask = self.sparser(X, X)
+
+        enc1 = self.enc_msab1(X, mask) 
         enc2 = self.enc_msab2(enc1, mask) 
         enc3 = self.enc_msab3(enc2, mask)
         enc4 = self.enc_sab2(enc3) 
