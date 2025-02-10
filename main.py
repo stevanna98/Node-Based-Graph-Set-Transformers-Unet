@@ -62,8 +62,9 @@ def main():
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')    
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
-    parser.add_argument('--l1_lambda', type=float, default=0.01, help='L1 regularization lambda')
-    parser.add_argument('--lambda_sym', type=float, default=0.01, help='Symmetry regularization lambda')
+    parser.add_argument('--l1_lambda', type=float, default=1e-4, help='L1 regularization lambda')
+    parser.add_argument('--l2_lambda', type=float, default=1e-4, help='L2 regularization lambda')
+    parser.add_argument('--lambda_sym', type=float, default=1e-3, help='Symmetry regularization lambda')
 
     args = parser.parse_args()
 
@@ -113,12 +114,13 @@ def main():
             ln=args.ln,
             lr=args.lr,
             l1_lambda=args.l1_lambda,
+            l2_lambda=args.l2_lambda,
             lambda_sym=args.lambda_sym
         ).to(device)
 
         # TRAINING #
         monitor = 'val_loss'
-        early_stopping = EarlyStopping(monitor=monitor, patience=10, mode='min')
+        early_stopping = EarlyStopping(monitor=monitor, patience=15, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
         callbacks = [early_stopping, lr_monitor]
 

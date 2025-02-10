@@ -27,6 +27,7 @@ class Model(pl.LightningModule):
                  ln: bool,
                  lr: float,
                  l1_lambda: float,
+                 l2_lambda: float,
                  lambda_sym: float):
         super(Model, self).__init__()
         self.save_hyperparameters()
@@ -42,6 +43,7 @@ class Model(pl.LightningModule):
         self.lr = lr
 
         self.l1_lambda = l1_lambda  
+        self.l2_lambda = l2_lambda
         self.lambda_sym = lambda_sym
 
         # ENCODER #
@@ -90,9 +92,9 @@ class Model(pl.LightningModule):
         mask = self.sparser(X, X)
 
         enc1 = self.enc_msab1(X, mask) 
-        enc2 = self.enc_msab2(enc1, mask) + enc1
-        enc3 = self.enc_msab3(enc2, mask) + enc2
-        enc4 = self.enc_sab2(enc3) + enc3
+        enc2 = self.enc_msab2(enc1, mask)
+        enc3 = self.enc_msab3(enc2, mask)
+        enc4 = self.enc_sab2(enc3)
 
         encoded = self.pma(enc4)
         if self.num_seeds > 1:
@@ -109,12 +111,14 @@ class Model(pl.LightningModule):
         y_true = y_true.view(y_pred.shape)
         bce_loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
 
-        l1_reg = self.l1_lambda * torch.sum(torch.abs(mask))
+        l1_reg = self.l1_lambda * torch.sum(torch.log(torch.abs(mask)))
         
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)
 
-        loss = bce_loss + l1_reg + sym_reg
+        l2_norm = self.l2_lambda * sum(p.pow(2.0).sum() for p in self.parameters())
+
+        loss = bce_loss + l1_reg + sym_reg + l2_norm
 
         # print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
     

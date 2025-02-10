@@ -19,7 +19,7 @@ class Sparser(pl.LightningModule):
         self.W_q = nn.ModuleList([nn.Linear(dim_Q, self.dim_head) for _ in range(num_heads)])
         self.W_k = nn.ModuleList([nn.Linear(dim_K, self.dim_head) for _ in range(num_heads)])
 
-        self.sparser = nn.ModuleList([nn.Conv2d(dim_Q, dim_Q, kernel_size=3, stride=1, padding=1) for _ in range(num_heads)])
+        self.sparser = nn.ModuleList([nn.Conv2d(dim_Q, dim_Q, kernel_size=5, stride=1, padding=2) for _ in range(num_heads)])
         self.batch_norm = nn.ModuleList([nn.BatchNorm2d(dim_Q) for _ in range(num_heads)])
 
         if ln:
