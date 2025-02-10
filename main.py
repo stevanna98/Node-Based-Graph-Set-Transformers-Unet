@@ -136,7 +136,7 @@ def main():
         trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
         # TESTING #
-        trainer.test(model, test_dataloaders=test_loader)
+        trainer.test(model, dataloaders=test_loader)
         fold_results.append(model.test_metrics_per_epoch)
 
     # AVERAGE METRICS #
