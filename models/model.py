@@ -46,12 +46,12 @@ class Model(pl.LightningModule):
         # ENCODER #
         self.enc_sab = SAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.sparser = nn.Sequential(
-            nn.Conv2d(dim_hidden, dim_hidden, kernel_size=1, stride=1, padding=0),
-            nn.BatchNorm2d(dim_hidden),
+            nn.Conv2d(dim_hidden, dim_input, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(dim_input),
             nn.ReLU()
         )
 
-        self.enc_msab1 = MSAB(dim_hidden, dim_hidden, num_heads, ln, dropout_ratio)
+        self.enc_msab1 = MSAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab2 = MSAB(dim_hidden, dim_hidden_, num_heads, ln, dropout_ratio)
         self.enc_msab3 = MSAB(dim_hidden_, dim_hidden_, num_heads, ln, dropout_ratio)
         self.enc_sab2 = SAB(dim_hidden_, dim_hidden_, num_heads, ln, dropout_ratio)
@@ -63,7 +63,7 @@ class Model(pl.LightningModule):
 
         # CLASSIFIER #
         self.output_mlp = nn.Sequential(
-            nn.Linear(dim_hidden, output_intermediate_dim),
+            nn.Linear(dim_hidden_, output_intermediate_dim),
             nn.ReLU(),
             nn.Dropout(dropout_ratio),
             nn.Linear(output_intermediate_dim, dim_output)
@@ -80,12 +80,15 @@ class Model(pl.LightningModule):
 
     def forward(self, X):
         x = self.enc_sab(X)
-        mask = self.sparser(x)
+        x_ = x.permute(0, 2, 1).unsqueeze(-1) 
+
+        mask = self.sparser(x_)
+        mask = mask.squeeze(-1).permute(0, 2, 1)
 
         enc1 = self.enc_msab1(X, mask) + x
-        enc2 = self.enc_msab2(enc1, mask) + enc1
-        enc3 = self.enc_msab3(enc2, mask) + enc2
-        enc4 = self.enc_sab2(enc3) + enc3
+        enc2 = self.enc_msab2(enc1, mask) 
+        enc3 = self.enc_msab3(enc2, mask)
+        enc4 = self.enc_sab2(enc3) 
 
         encoed = self.pma(enc4)
         if self.num_seeds > 1:
@@ -117,19 +120,19 @@ class Model(pl.LightningModule):
         return loss, y, y_pred, mask
     
     def training_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, ys, outs, mask = self._step(batch, batch_idx)
         self.log('train_loss', loss)
         self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, ys, outs, mask = self._step(batch, batch_idx)
         self.log('val_loss', loss)
         self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def test_step(self, batch, batch_idx):
-        loss, outs, ys = self._step(batch, batch_idx)
+        loss, ys, outs, mask = self._step(batch, batch_idx)
         self.log('test_loss', loss)
         self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
