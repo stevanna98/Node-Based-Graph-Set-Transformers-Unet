@@ -118,10 +118,9 @@ def main():
 
         # TRAINING #
         monitor = 'val_loss'
-        early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
+        early_stopping = EarlyStopping(monitor=monitor, patience=10, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        # callbacks = [early_stopping, lr_monitor]
-        callbacks = [lr_monitor]
+        callbacks = [early_stopping, lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'fold_{fold}')
 

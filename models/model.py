@@ -90,13 +90,13 @@ class Model(pl.LightningModule):
         mask = self.sparser(X, X)
 
         enc1 = self.enc_msab1(X, mask) 
-        enc2 = self.enc_msab2(enc1, mask) 
-        enc3 = self.enc_msab3(enc2, mask)
-        enc4 = self.enc_sab2(enc3) 
+        enc2 = self.enc_msab2(enc1, mask) + enc1
+        enc3 = self.enc_msab3(enc2, mask) + enc2
+        enc4 = self.enc_sab2(enc3) + enc3
 
         encoed = self.pma(enc4)
         if self.num_seeds > 1:
-            decoded = self.dec_sab(enc4)
+            decoded = self.dec_sab(encoded)
             readout = torch.mean(decoded, dim=1, keepdim=True)
 
             out = self.output_mlp(readout)
@@ -116,7 +116,7 @@ class Model(pl.LightningModule):
 
         loss = bce_loss + l1_reg + sym_reg
 
-        print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
+        # print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
     
         return loss
     
