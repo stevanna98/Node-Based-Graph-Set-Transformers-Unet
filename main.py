@@ -50,7 +50,7 @@ def main():
     parser.add_argument('--label_dir', type=str, help='Labels directory')
     parser.add_argument('--log_dir', type=str, help='Log directory')
 
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=70, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
@@ -128,7 +128,8 @@ def main():
         ).to(device)
 
         # TRAINING #
-        monitor = 'val_loss'
+        # monitor = 'val_loss'
+        monitor = 'val_f1_weighted'
         early_stopping = EarlyStopping(monitor=monitor, patience=20, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
         callbacks = [early_stopping, lr_monitor]

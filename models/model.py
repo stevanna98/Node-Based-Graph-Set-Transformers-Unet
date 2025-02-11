@@ -158,23 +158,37 @@ class Model(pl.LightningModule):
         X, y = batch
         out, mask, l0_penalty = self.forward(X)
         loss = self.loss_function(y, out, mask, l0_penalty)
-        return loss, y, out
+
+        y_pred = torch.sigmoid(out).detach()
+        y_pred = torch.where(y_pred > 0.5, 1.0, 0.0).long()
+
+        # Calcola metriche
+        metrics = get_classification_metrics(
+            y_true=y.long().detach().cpu().numpy(),
+            y_pred=y_pred.detach().cpu().numpy()
+        )
+        return loss, y, out, metrics
     
     def training_step(self, batch, batch_idx):
-        loss, ys, outs = self._step(batch, batch_idx)
+        loss, ys, outs, metrics = self._step(batch, batch_idx)
         self.log('train_loss', loss, on_step=True)
+        self.log('train_f1_weighted', metrics[2], on_step=True, on_epoch=True)
+
         self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, ys, outs = self._step(batch, batch_idx)
+        loss, ys, outs, metrics = self._step(batch, batch_idx)
         self.log('val_loss', loss, on_step=True)
+        self.log('val_f1_weighted', metrics[2], on_step=True, on_epoch=True)
+
         self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
     def test_step(self, batch, batch_idx):
-        loss, ys, outs = self._step(batch, batch_idx)
+        loss, ys, outs, metrics = self._step(batch, batch_idx)
         self.log('test_loss', loss, on_step=True)
+        self.log('test_f1_weighted', metrics[2], on_step=True, on_epoch=True)
         self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
