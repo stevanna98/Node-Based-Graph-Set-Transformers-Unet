@@ -136,15 +136,22 @@ class Model(pl.LightningModule):
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)
 
+        l1_norm = sum(p.abs().sum() for p in self.parameters())
+        l2_norm = sum(p.pow(2.0).sum() for p in self.parameters())
+
+        l1_loss = self.l1_lambda * l1_norm
+        l2_loss = self.l2_lambda * l2_norm
+
         # l2_norm = self.l2_lambda * sum(p.pow(2.0).sum() for p in self.parameters())
 
         # loss = bce_loss + l1_reg + sym_reg + l2_norm
-        loss = bce_loss + sym_reg + l0_penalty
+        eps = 1e-7
+        loss = 10*bce_loss + sym_reg + eps*l0_penalty + l1_loss + l2_loss
 
-        # print(f'bce_loss: {bce_loss.item()}, l0_penalty: {l0_penalty}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}')
+        # loss= (bce_loss*100)/loss + (sym_reg*100)/loss + (l1_loss*100)/loss + (l2_loss*100)/loss
+        # print(f'bce_loss: {10*bce_loss.item()}, l0_penalty: {eps*l0_penalty}, sym_reg: {sym_reg.item()}, l1_loss: {l1_loss.item()}, l2_loss: {l2_loss.item()}, total_loss: {loss.item()}')
 
         # print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
-    
         return loss
     
     def _step(self, batch, batch_idx):
@@ -155,20 +162,20 @@ class Model(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         loss, ys, outs = self._step(batch, batch_idx)
-        self.log('train_loss', loss)
-        self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
+        self.log('train_loss', loss, on_step=True)
+        self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
     def validation_step(self, batch, batch_idx):
         loss, ys, outs = self._step(batch, batch_idx)
-        self.log('val_loss', loss)
-        self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
+        self.log('val_loss', loss, on_step=True)
+        self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
     def test_step(self, batch, batch_idx):
         loss, ys, outs = self._step(batch, batch_idx)
-        self.log('test_loss', loss)
-        self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
+        self.log('test_loss', loss, on_step=True)
+        self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs, 'loss': loss})
         return loss
     
     def _get_metrics_epoch_end(self, all_y_true, all_y_pred):

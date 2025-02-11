@@ -84,7 +84,7 @@ class Sparser(pl.LightningModule):
         O = torch.stack(head_outputs, dim=1)
         O = O.mean(dim=1)
 
-        return O, total_penalty
+        return O, total_penalty/self.num_heads
             
 
 
