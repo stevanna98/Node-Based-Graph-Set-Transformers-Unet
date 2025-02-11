@@ -12,16 +12,19 @@ from sklearn.model_selection import StratifiedKFold
 
 from models.model import Model
 
+# Set random seed
+seed_value = 42
+torch.manual_seed(seed=seed_value)
+seed_everything(seed_value, workers=True)
+
 if torch.cuda.is_available():
     device = 'cuda'
+    torch.cuda.manual_seed(seed_value)
+    torch.cuda.manual_seed_all(seed_value)
 elif torch.backends.mps.is_available():
     device = 'mps'
 else:
     device = 'cpu'
-
-# Set random seed
-seed_value = 42
-seed_everything(seed_value, workers=True)
 
 warnings.filterwarnings('ignore')
 
@@ -100,9 +103,9 @@ def main():
         print(f'Validation subset: {len(val_subset)} subjects')
         print(f'Test subset: {len(test_set)} subjects')
 
-        train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False)
-        test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+        train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+        val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+        test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
         n_features = dataset.matrices.shape[1]
 
