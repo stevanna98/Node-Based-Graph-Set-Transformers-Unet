@@ -14,7 +14,7 @@ class Sparser(pl.LightningModule):
                  num_heads: int,
                  reg_type: str,
                  ln: bool,
-                 loc_mean = 0,
+                 loc_mean = 1,
                  loc_sdev = 0.01,
                  beta = 2 / 3,
                  gamma = -0.1,
@@ -35,10 +35,19 @@ class Sparser(pl.LightningModule):
             nn.Linear(dim_K, self.dim_head) for _ in range(num_heads)
         ])
 
+        l0_params = {
+            'loc_mean': loc_mean,
+            'loc_sdev': loc_sdev,
+            'beta': beta,
+            'gamma': gamma,
+            'zeta': zeta,
+            'fix_temp': fix_temp
+        }
+
         self.reg_type = reg_type
         if reg_type == 'linear':
             self.l0_gate = nn.ModuleList([
-                L0Linear(dim_Q, dim_Q, loc_mean=loc_mean) for _ in range(num_heads)
+                L0Linear(dim_Q, dim_Q, **l0_params) for _ in range(num_heads)
             ])
             # self.l0_gate = L0Linear(dim_Q, dim_Q, loc_mean=1)
         elif reg_type == 'conv2d':

@@ -20,7 +20,7 @@ else:
     device = 'cpu'
 
 # Set random seed
-seed_value = 27
+seed_value = 42
 seed_everything(seed_value, workers=True)
 
 warnings.filterwarnings('ignore')
