@@ -27,6 +27,8 @@ class Model(pl.LightningModule):
                  ln: bool,
                  lr: float,
                  l1_lambda: float,
+                 alpha: float,
+                 beta: float,
                  l2_lambda: float,
                  lambda_sym: float,
                  mask_thr: float):
@@ -44,6 +46,8 @@ class Model(pl.LightningModule):
         self.lr = lr
 
         self.l1_lambda = l1_lambda  
+        self.alpha = alpha 
+        self.beta = beta 
         self.l2_lambda = l2_lambda
         self.lambda_sym = lambda_sym
         self.mask_thr = mask_thr
@@ -95,8 +99,8 @@ class Model(pl.LightningModule):
         # mask = self.sparser(x_)
         # mask = mask.squeeze(-1).permute(0, 2, 1)
 
-        mask = self.sparser(X, X)
-        mask = self.threshold_mask(mask, self.mask_thr)
+        mask, attn_weights = self.sparser(X, X)
+        # mask = self.threshold_mask(mask, self.mask_thr)
 
         enc1 = self.enc_msab1(X, mask)
         enc2 = self.enc_msab2(enc1, mask)
@@ -112,13 +116,20 @@ class Model(pl.LightningModule):
         else:
             out = self.output_mlp(encoded)
 
-        return out, mask
+        return out, attn_weights
+    
+    def sparsity_regularization(self, mask):
+        l1_term = self.alpha * torch.norm(mask, p=1)
+        l2_term = self.beta * torch.norm(mask, p=2)
+        return l1_term + l2_term
     
     def loss_function(self, y_true, y_pred, mask):
         y_true = y_true.view(y_pred.shape)
         bce_loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
 
-        l1_reg = self.l1_lambda * torch.sum(torch.log(torch.abs(mask)))
+        # l1_reg = self.l1_lambda * torch.sum(torch.log(torch.abs(mask)))
+        l1_reg = self.l1_lambda * torch.norm(mask)
+        # sparsity_reg = self.sparsity_regularization(mask)
         
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)

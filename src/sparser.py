@@ -19,7 +19,7 @@ class Sparser(pl.LightningModule):
         self.W_q = nn.ModuleList([nn.Linear(dim_Q, self.dim_head) for _ in range(num_heads)])
         self.W_k = nn.ModuleList([nn.Linear(dim_K, self.dim_head) for _ in range(num_heads)])
 
-        self.sparser = nn.ModuleList([nn.Conv2d(dim_Q, dim_Q, kernel_size=5, stride=1, padding=2) for _ in range(num_heads)])
+        self.sparser = nn.ModuleList([nn.Conv2d(dim_Q, dim_Q, kernel_size=1, stride=1, padding=0) for _ in range(num_heads)])
         self.batch_norm = nn.ModuleList([nn.BatchNorm2d(dim_Q) for _ in range(num_heads)])
 
         if ln:
@@ -31,13 +31,14 @@ class Sparser(pl.LightningModule):
             nn.init.xavier_uniform_(self.W_k[head].weight)
 
     def forward(self, Q, K):
-        Q = Q if getattr(self, 'ln_q', None) is None else self.ln_q(Q)
-        K = K if getattr(self, 'ln_k', None) is None else self.ln_k(K)
+        Q_norm = Q if getattr(self, 'ln_q', None) is None else self.ln_q(Q)
+        K_norm = K if getattr(self, 'ln_k', None) is None else self.ln_k(K)
 
         head_outputs = []
+        attn_weights = []
         for head in range(self.num_heads):
-            Q_ = self.W_q[head](Q)
-            K_ = self.W_k[head](K)
+            Q_ = self.W_q[head](Q_norm)
+            K_ = self.W_k[head](K_norm)
 
             A = torch.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_head), 2)
             A = A.permute(0, 2, 1).unsqueeze(-1)
@@ -47,7 +48,11 @@ class Sparser(pl.LightningModule):
 
             head_output = A_.bmm(Q)
             head_outputs.append(head_output)
+            attn_weights.append(A_)
 
-        return random.choice(head_outputs)
+        O = torch.stack(head_outputs, dim=1)
+        O = O.mean(dim=1)
+
+        return O, attn_weights
 
         

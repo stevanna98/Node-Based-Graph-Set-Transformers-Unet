@@ -49,7 +49,7 @@ def main():
     parser.add_argument('--label_dir', type=str, help='Labels directory')
     parser.add_argument('--log_dir', type=str, help='Log directory')
 
-    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--kfolds', type=int, default=5, help='Number of folds for cross-validation')
@@ -65,6 +65,9 @@ def main():
     parser.add_argument('--l1_lambda', type=float, default=1e-4, help='L1 regularization lambda')
     parser.add_argument('--l2_lambda', type=float, default=1e-4, help='L2 regularization lambda')
     parser.add_argument('--lambda_sym', type=float, default=1e-3, help='Symmetry regularization lambda')
+    parser.add_argument('--mask_thr', type=float, default=1e-8, help='Mask threshold')
+    parser.add_argument('--alpha', type=float, default=1e-3)
+    parser.add_argument('--beta', type=float, default=1e-3)
 
     args = parser.parse_args()
 
@@ -114,15 +117,19 @@ def main():
             ln=args.ln,
             lr=args.lr,
             l1_lambda=args.l1_lambda,
+            alpha=args.alpha,
+            beta=args.beta,
             l2_lambda=args.l2_lambda,
-            lambda_sym=args.lambda_sym
+            lambda_sym=args.lambda_sym,
+            mask_thr=args.mask_thr
         ).to(device)
 
         # TRAINING #
         monitor = 'val_loss'
         early_stopping = EarlyStopping(monitor=monitor, patience=15, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        callbacks = [early_stopping, lr_monitor]
+        # callbacks = [early_stopping, lr_monitor]
+        callbacks = [lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'fold_{fold}')
 
