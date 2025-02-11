@@ -46,15 +46,16 @@ class Sparser(pl.LightningModule):
 
         self.reg_type = reg_type
         if reg_type == 'linear':
-            self.l0_gate = nn.ModuleList([
-                L0Linear(dim_Q, dim_Q, **l0_params) for _ in range(num_heads)
-            ])
-            # self.l0_gate = L0Linear(dim_Q, dim_Q, loc_mean=1)
+            # self.l0_gate = nn.ModuleList([
+            #     L0Linear(dim_Q, dim_Q, **l0_params) for _ in range(num_heads)
+            # ])
+            self.l0_gate = L0Linear(dim_Q, dim_Q, loc_mean=1)
         elif reg_type == 'conv2d':
             self.l0_gate = nn.ModuleList([
                 L0Conv2d(dim_Q, dim_Q, kernel_size=1, stride=1) for _ in range(num_heads)
             ])
             # self.l0_gate = L0Conv2d(dim_Q, dim_Q, kernel_size=1, stride=1)
+
         if ln:
             self.ln_q = nn.LayerNorm(dim_Q)
             self.ln_k = nn.LayerNorm(dim_K)
@@ -75,7 +76,8 @@ class Sparser(pl.LightningModule):
 
             A = torch.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_head), 2)
 
-            gate, penalty = self.l0_gate[head](A)
+            # gate, penalty = self.l0_gate[head](A)
+            gate, penalty = self.l0_gate(A)
             total_penalty += penalty
             head_outputs.append(gate)
 
