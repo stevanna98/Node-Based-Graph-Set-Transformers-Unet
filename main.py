@@ -62,6 +62,7 @@ def main():
     parser.add_argument('--num_heads', type=int, default=16, help='Number of heads')    
     parser.add_argument('--num_seeds', type=int, default=32, help='Number of seeds')
     parser.add_argument('--ln', default=True, help='Layer normalization')
+    parser.add_argument('--reg_type', type=str, default='conv2d', help='Regularization type')
     parser.add_argument('--l1_lambda', type=float, default=1e-4, help='L1 regularization lambda')
     parser.add_argument('--l2_lambda', type=float, default=1e-4, help='L2 regularization lambda')
     parser.add_argument('--lambda_sym', type=float, default=1e-3, help='Symmetry regularization lambda')
@@ -116,6 +117,7 @@ def main():
             num_seeds=args.num_seeds,
             ln=args.ln,
             lr=args.lr,
+            reg_type=args.reg_type,
             l1_lambda=args.l1_lambda,
             alpha=args.alpha,
             beta=args.beta,

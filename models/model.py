@@ -11,7 +11,7 @@ from torch_geometric.utils.repeat import repeat
 
 from src.modulesv2 import *
 from src.mask_modulesv2 import *
-from src.sparser import Sparser
+from src.sparserv2 import Sparser
 from src.utils import *
 
 class Model(pl.LightningModule):
@@ -26,6 +26,7 @@ class Model(pl.LightningModule):
                  num_seeds: int,
                  ln: bool,
                  lr: float,
+                 reg_type: str,
                  l1_lambda: float,
                  alpha: float,
                  beta: float,
@@ -45,6 +46,7 @@ class Model(pl.LightningModule):
         self.ln = ln
         self.lr = lr
 
+        self.reg_type = reg_type    
         self.l1_lambda = l1_lambda  
         self.alpha = alpha 
         self.beta = beta 
@@ -59,7 +61,7 @@ class Model(pl.LightningModule):
         #     nn.BatchNorm2d(dim_input),
         #     nn.ReLU()
         # )
-        self.sparser = Sparser(dim_input, dim_input, dim_hidden, num_heads, ln)
+        self.sparser = Sparser(dim_input, dim_input, dim_hidden, num_heads, reg_type, ln)
 
         self.enc_msab1 = MSAB(dim_input, dim_hidden, num_heads, ln, dropout_ratio)
         self.enc_msab2 = MSAB(dim_hidden, dim_hidden_, num_heads, ln, dropout_ratio)
@@ -99,7 +101,7 @@ class Model(pl.LightningModule):
         # mask = self.sparser(x_)
         # mask = mask.squeeze(-1).permute(0, 2, 1)
 
-        mask, attn_weights = self.sparser(X, X)
+        mask, l0_penalty = self.sparser(X, X)
         # mask = self.threshold_mask(mask, self.mask_thr)
 
         enc1 = self.enc_msab1(X, mask)
@@ -116,27 +118,28 @@ class Model(pl.LightningModule):
         else:
             out = self.output_mlp(encoded)
 
-        return out, attn_weights
+        return out, mask, l0_penalty
     
     def sparsity_regularization(self, mask):
         l1_term = self.alpha * torch.norm(mask, p=1)
         l2_term = self.beta * torch.norm(mask, p=2)
         return l1_term + l2_term
     
-    def loss_function(self, y_true, y_pred, mask):
+    def loss_function(self, y_true, y_pred, mask, l0_penalty):
         y_true = y_true.view(y_pred.shape)
         bce_loss = F.binary_cross_entropy_with_logits(y_pred.float(), y_true.float())
 
         # l1_reg = self.l1_lambda * torch.sum(torch.log(torch.abs(mask)))
-        l1_reg = self.l1_lambda * torch.norm(mask)
+        # l1_reg = self.l1_lambda * torch.norm(mask)
         # sparsity_reg = self.sparsity_regularization(mask)
         
         sym_diff = mask - mask.transpose(1, 2)
         sym_reg = self.lambda_sym * torch.sum(sym_diff ** 2)
 
-        l2_norm = self.l2_lambda * sum(p.pow(2.0).sum() for p in self.parameters())
+        # l2_norm = self.l2_lambda * sum(p.pow(2.0).sum() for p in self.parameters())
 
-        loss = bce_loss + l1_reg + sym_reg + l2_norm
+        # loss = bce_loss + l1_reg + sym_reg + l2_norm
+        loss = bce_loss + sym_reg + l0_penalty
 
         # print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
     
@@ -144,24 +147,24 @@ class Model(pl.LightningModule):
     
     def _step(self, batch, batch_idx):
         X, y = batch
-        out, mask = self.forward(X)
-        loss = self.loss_function(y, out, mask)
-        return loss, y, out, mask
+        out, mask, l0_penalty = self.forward(X)
+        loss = self.loss_function(y, out, mask, l0_penalty)
+        return loss, y, out
     
     def training_step(self, batch, batch_idx):
-        loss, ys, outs, mask = self._step(batch, batch_idx)
+        loss, ys, outs = self._step(batch, batch_idx)
         self.log('train_loss', loss)
         self.train_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, ys, outs, mask = self._step(batch, batch_idx)
+        loss, ys, outs = self._step(batch, batch_idx)
         self.log('val_loss', loss)
         self.validation_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss
     
     def test_step(self, batch, batch_idx):
-        loss, ys, outs, mask = self._step(batch, batch_idx)
+        loss, ys, outs = self._step(batch, batch_idx)
         self.log('test_loss', loss)
         self.test_outputs[self.current_epoch].append({'y_true': ys, 'y_pred': outs})
         return loss

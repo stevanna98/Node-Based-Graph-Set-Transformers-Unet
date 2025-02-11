@@ -6,10 +6,8 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
-
 def hard_sigmoid(x):
     return torch.min(torch.max(x, torch.zeros_like(x)), torch.ones_like(x))
-
 
 class _L0Norm(pl.LightningModule):
     def __init__(self, origin, loc_mean=0, loc_sdev=0.01, beta=2 / 3, gamma=-0.1,
