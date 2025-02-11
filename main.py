@@ -13,7 +13,7 @@ from sklearn.model_selection import StratifiedKFold
 from models.model import Model
 
 # Set random seed
-seed_value = 1998
+seed_value = 42
 torch.manual_seed(seed=seed_value)
 seed_everything(seed_value, workers=True)
 
@@ -131,8 +131,8 @@ def main():
         monitor = 'val_loss'
         early_stopping = EarlyStopping(monitor=monitor, patience=15, mode='min')
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-        # callbacks = [early_stopping, lr_monitor]
-        callbacks = [lr_monitor]
+        callbacks = [early_stopping, lr_monitor]
+        # callbacks = [lr_monitor]
 
         tensorboardlogger = TensorBoardLogger(args.log_dir, name=f'fold_{fold}')
 

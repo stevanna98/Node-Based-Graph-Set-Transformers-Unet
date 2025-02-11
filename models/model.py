@@ -141,6 +141,8 @@ class Model(pl.LightningModule):
         # loss = bce_loss + l1_reg + sym_reg + l2_norm
         loss = bce_loss + sym_reg + l0_penalty
 
+        # print(f'bce_loss: {bce_loss.item()}, l0_penalty: {l0_penalty}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}')
+
         # print(f"bce_loss: {bce_loss.item()}, l1_reg: {l1_reg.item()}, sym_reg: {sym_reg.item()}, total_loss: {loss.item()}")
     
         return loss
